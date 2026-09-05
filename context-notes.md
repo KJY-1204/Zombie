@@ -376,6 +376,30 @@ Append-only. Verified project facts and decisions only.
 - Play Mode에서 헛간 중심이 NavMesh 밖(반경 0.5 내 샘플링 실패)임을 확인해 좀비가 헛간을 통과하지 못함을 검증. 플레이어를 헛간 옆으로 이동시켜도 정상 서 있음(콜라이더로 물리 차단 확보). 콘솔 에러 0건.
 - 45도 각도 스크린샷(헛간+사일로+울타리+나무 조합)과 탑뷰 스크린샷(전체 배치)으로 육안 확인 — 자연스러운 작은 농장 실루엣을 이룸.
 
+## 2026-09-05 — 맵 확장 3차: Blender로 농장 소품 재제작 ("엉성해 보인다" 피드백)
+
+### 사용자 피드백 및 결정
+- 프리미티브(Cube/Cylinder/Sphere)로 만든 농장 소품이 "엉성해 보인다"며 "블랜더로 맵을 만들어줄수있니?" 요청.
+- 이 컴퓨터에 Blender 5.2.1 LTS가 설치되어 있음을 확인(`C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`). Blender를 `--background --python 스크립트경로` 로 헤드리스 실행해 bpy/bmesh로 절차적 모델을 만들고 FBX로 내보낸 뒤, 그 FBX를 Unity 프로젝트로 가져와 기존 프리미티브를 교체하는 방식으로 진행.
+
+### Blender 헤드리스 파이프라인 (다음에도 재사용 가능한 패턴)
+- 스크립트 위치: 세션 스크래치패드(`.../scratchpad/build_rural_props.py`), 출력은 스크래치패드 하위 `rural_export/`에 FBX로 저장 후 `Assets/Models/Rural/`로 복사 → `refresh_unity`로 임포트.
+- 실행 명령: `"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --python <스크립트경로>` — GUI 없이 몇 초 안에 끝남, stdout에 각 FBX export 로그가 찍힘.
+- FBX 내보내기 옵션 중요 포인트: `axis_forward='-Z', axis_up='Y'`로 지정해야 Blender(Z-up)→Unity(Y-up) 좌표계가 올바르게 변환됨(직접 확인: 씬에 배치했을 때 모든 오브젝트의 로컬 Y 오프셋이 Blender에서 설계한 Z 오프셋과 정확히 일치).
+- 오브젝트별로 pivot이 다르게 나올 수 있음(bmesh로 직접 정점을 이동시킨 경우 pivot이 원점에 남고 좌표가 메쉬에 baked됨 / `primitive_xxx_add(location=...)`로 만든 경우 pivot 자체가 그 위치로 이동하고 메쉬는 로컬 원점 중심으로 남음) — 어느 쪽이든 Unity로 들어오면 자식 GameObject의 `localPosition`은 항상 올바른 실제 오프셋을 가지므로, Unity에서 배치할 때는 각 파츠의 `localPosition`을 기준으로 생각하면 됨(메쉬 자체의 `bounds.center`가 (0,0,0)으로 나와도 당황할 필요 없음 — pivot 방식 차이일 뿐).
+- 만든 5종: `Barn.fbx`(몸체+진짜 삼각프리즘 박공지붕, 처마 오버행 포함), `Silo.fbx`(원기둥+진짜 원뿔 지붕), `Tree.fbx`(원뿔형 트렁크+아이코스피어를 무작위 정점 지터로 찌그러뜨린 불규칙 수관), `HayBale.fbx`(베벨 모디파이어로 모서리를 둥글린 원기둥), `WoodFence.fbx`(기둥 2개+가로대 2단, 목재 파스처 펜스 — 기존 철제 묘지 울타리를 농장에 재활용하던 어색함 해소).
+- 지붕 트릭(헛간): bmesh로 처마 사각형 4점 + 능선 2점, 총 6정점으로 삼각기둥 지붕을 직접 정의(앞/뒤 삼각형 2면 + 좌우 경사면 2면) — 이전 세션에서 썼던 "정사각 큐브를 45도 회전시키는" 트릭보다 훨씬 깔끔하고 처마 오버행도 자연스럽게 표현됨. 앞으로 각진 지붕이 필요하면 이 bmesh 6정점 패턴을 재사용할 것(정사각 회전 트릭은 폐기).
+
+### 프리미티브 → Blender 모델 교체
+- 기존 프리미티브 25개(헛간/사일로/철제울타리 7/나무 11/건초더미 3) 전부 삭제 후, 같은 위치·스케일·회전으로 새 FBX 인스턴스 재배치(나무는 기존에 저장해뒀던 무작위 변주값을 그대로 재사용해 배치가 흐트러지지 않음).
+- 목재 울타리는 세그먼트 폭이 기존 철제 울타리(2유닛)와 다르게 설계됨(2.4유닛) — 개수를 7→6개로 재계산해 비슷한 총 길이(약 14유닛)를 유지.
+- 헛간 몸체(BoxCollider)·사일로 몸체(CapsuleCollider)·나무 11그루 각각의 Trunk(CapsuleCollider)에 콜라이더와 `NavMeshModifier`(Not Walkable)를 새로 추가(FBX로 임포트된 메쉬는 프리미티브와 달리 콜라이더가 자동으로 안 붙으므로 수동 추가 필요) — 이전에는 헛간·사일로에만 달았지만 이번엔 나무 트렁크에도 추가해 좀비가 나무를 뚫고 지나가지 않도록 개선.
+- NavMesh 재굽기+에셋 재저장 함정(지난 두 차례 기록 참고)을 세 번째로 동일하게 겪을 뻔했으나 이번엔 처음부터 `AssetDatabase.DeleteAsset`+`CreateAsset`+`SaveAssets` 패턴을 바로 적용해 문제없이 처리함.
+
+### 검증
+- Play Mode에서 헛간 중심·나무 트렁크 둘 다 NavMesh 밖(좀비 차단 확인), 플레이어가 헛간 옆에 서도 정상. 콘솔 에러 0건.
+- 45도/탑뷰 스크린샷 비교: 이전 프리미티브 버전 대비 실루엣이 뚜렷하게 개선됨(진짜 박공지붕, 원뿔 사일로 지붕, 불규칙한 나무 수관, 어색했던 철제 울타리 대신 목재 울타리).
+
 ## 2026-09-05 — 세션 종료 (다른 컴퓨터에서 이어서 작업 예정)
 
 - 이 시점까지 커밋 `bb7a9d1`까지 전부 GitHub `origin/main`에 push 완료. 로컬에 미커밋/미푸시 변경 없음(`git status --short` 깨끗함).
