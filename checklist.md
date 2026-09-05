@@ -1,76 +1,28 @@
-# Checklist — Slice 4: 플레이어 상태 창 (Project Zomboid 스타일)
+# Checklist — 근접무기(삽) + 무기 전환 시스템
 
-## 배경 (사용자 확인)
-- Phase A 인스펙션 중 발견: 체력 UI는 이미 존재했음(플레이어 발밑의 방사형 링, `Health Circle` 스프라이트를 Radial360 Fill로 사용). Slice 1 때 "미니맵과 무관한 기존 장식"으로 오인해 넘겼던 분홍 링이 사실 이것이었음.
-- 사용자 요청: 기존 발밑 링을 제거하고, Project Zomboid처럼 `I` 키를 누르면 뜨는 상태 창으로 교체.
+## CP1. 데이터/스크립트 기반
+- [x] `Assets/Scripts/MeleeWeaponData.cs` 신규 (ScriptableObject, damage/attackRange/attackRadius/swingDuration/timeBetAttack).
+- [x] `Assets/ScriptableData/Shovel Data.asset` 생성.
+- [x] `Assets/Scripts/MeleeWeapon.cs` 신규 (leftHandMount/rightHandMount/meleeData, Attack()→SwingRoutine() 코루틴, OverlapSphere 판정).
+- [x] `Assets/Scripts/Gun.cs`에 `leftHandMount`/`rightHandMount` 필드 추가(로직 변경 없음, PlayerShooter가 참조할 수 있게).
+      Verify: 컴파일 에러 0건 (read_console 확인 완료).
 
-## CP1. 기존 발밑 체력 링 제거
-- [x] `PlayerHealth.cs`에서 `healthSlider` 필드와 모든 사용처(OnEnable/RestoreHealth-오버라이드 삭제/OnDamage/Die) 제거. 체력 표시 책임을 완전히 UI 쪽(StatusWindow)으로 이관.
-- [x] `Player Character.prefab`에서 월드스페이스 `Canvas`(`Health Slider` 포함) 자식 오브젝트 삭제.
-      Verify: 컴파일 에러 0건, 스크린샷에서 발밑 링이 더 이상 안 보임 확인.
+## CP2. Melee Weapon 프리팹
+- [x] `Assets/Prefabs/Melee Weapon.prefab` 생성: shovel.fbx 모델 + Left Handle/Right Handle 트랜스폼 + AudioSource + MeleeWeapon 컴포넌트.
+- [x] `Player Character.prefab`의 `Gun Pivot` 아래 `Gun`의 형제로 배치, 기본 비활성.
+      Verify: Main Camera 게임 뷰 스크린샷으로 확인 — 삽을 어깨 위로 비스듬히 들어올린 자연스러운 대기 자세, 총과 동일한 IK 손 마운트 컨벤션으로 부착됨을 눈으로 확인. 완벽한 손맛은 헤드리스 한계로 사용자 직접 플레이 권장.
 
-## CP2. 상태 창 UI + 토글 입력
-- [x] `PlayerInput.cs`에 `toggleStatus`(`KeyCode.I`, `GetKeyDown`) 추가, 게임오버 시 false로 리셋.
-- [x] `UIManager.cs`에 `statusWindow`(GameObject)/`statusHealthText`(Text) 필드 + `Awake()`(플레이어 PlayerInput/LivingEntity 캐싱, 창 기본 비활성화) + `Update()`(토글 입력 시 SetActive 반전, 열려있는 동안만 체력 텍스트 갱신) 추가.
-- [x] `HUD Canvas.prefab`에 `Status Window` 패널(반투명 검은 배경, 제목 "상태", 체력 텍스트, "[I] 닫기" 안내) 추가, 기본 비활성.
-      Verify: 리플렉션으로 `toggleStatus`를 두 번 시뮬레이션해 창이 열림→닫힘 정상 토글 확인. 체력을 100→65로 깎은 뒤 열었을 때 텍스트가 "체력  65 / 100"으로 정확히 갱신됨을 코드로 직접 확인(스크린샷은 헤드리스 환경의 캔버스 지연/글리치로 신뢰 불가 — 컴포넌트 값 직접 조회로 대체 검증).
+## CP3. 무기 전환 로직
+- [x] `PlayerInput.cs`에 `switchWeapon`(Q키) 추가.
+- [x] `PlayerShooter.cs` 리팩터링: currentWeapon(Gun/Melee) 상태, Q 입력 시 두 무기 GameObject SetActive 반전 + IK 마운트 참조 교체, fire 입력을 현재 무기에 라우팅, reload는 Gun일 때만.
+      Verify: 리플렉션으로 `EquipWeapon(Melee)` 직접 호출 → gunActive=False/meleeActive=True로 정확히 반전 확인. `OnAnimatorIK`가 실제로 갱신하는 애니메이터 IK 위치가 현재 무기(Melee)의 leftHandMount/rightHandMount 월드 좌표와 정확히 일치함을 확인(Gun으로 되돌린 뒤에도 동일하게 일치 재확인).
 
-## CP3. 회귀 확인
+## CP4. 판정 검증
+- [x] 좀비 근처에서 `meleeWeapon.Attack()` 직접 호출 → 스윙 진행 중 판정 시점에 좀비 체력이 실제로 감소하는지 확인.
+- [x] 스윙 중 무기 로컬 회전이 프레임별로 변하는지 확인.
+- [x] Gun 회귀: 다시 총으로 전환 후 발사/재장전 정상 동작 확인.
+      Verify: 에디터를 일시정지(`isPaused=true`)한 뒤 `EditorApplication.Step()`으로 프레임을 한 장씩 진행하며 확인 — 무기 로컬 회전이 310°(대기)→318.7°→...→80°(스윙 정점)까지 프레임마다 매끄럽게 변하고, t≈0.4 지점(step 6)에서 좀비 체력이 20→-60으로 정확히 1회 감소(중복 판정 없음, hitApplied 플래그 정상 동작), 스윙 종료 후 대기 자세(310°)로 복귀함을 확인. Gun으로 전환 후 `Fire()` 호출 시 magAmmo 25→24 정상 감소, `Reload()` 호출 시 state가 Reloading으로 정상 전환됨을 확인.
+
+## CP5. 통합 검증
 - [x] Unity 컴파일 에러 0건.
-- [x] `healthSlider` 참조가 코드 전체에 남아있지 않음(grep 확인).
-- [x] 플레이 중 콘솔 에러 없음(테스트 중 실제 사망 이벤트 발생했으나 예외 없이 정상 처리됨 — GameManager 게임오버 흐름 회귀 없음).
-
-## CP4. PZ 스타일 시각적 참고 반영 (사용자가 예시 이미지 제공)
-- 사용자가 Project Zomboid의 실제 상태창 스크린샷 2장을 공유. 부위별 부상/붕대/체온/운동 탭 등 깊은 시뮬레이션 포함 — 확인 결과 **시각적 스타일만 참고**하기로 확정(부위별 부상 시스템 등은 만들지 않음).
-- [x] `Assets/Sprites/Status Body Silhouette.png` 생성 (원+사각형 조합으로 그린 단순 사람 실루엣, 120x224, 코드로 절차적 생성).
-- [x] 상태 창 레이아웃을 실루엣(좌측) + 세로 체력바(우측, Image Filled/Vertical) + 체력바 하단 아이콘(기존 인벤토리 체력 아이콘 재사용) + 상단 퍼센트 텍스트로 재구성. 패널 크기 340x340으로 확대.
-- [x] `UIManager.cs`에 `statusHealthBarFill`(Image) 필드 추가, `Update()`에서 `fillAmount = health/startingHealth`로 갱신(텍스트도 "체력 70%" 형식으로 변경).
-      Verify: 코드로 데미지 30 적용 후 상태창 열어 `healthText="체력 70%"`, `fillAmount=0.7` 정확히 일치 확인. `RectTransform.GetWorldCorners()`로 패널이 화면(1515x862) 안쪽 중앙(553~960, 227~634)에 정확히 위치함을 좌표로 확인(스크린샷이 반복적으로 안 보였는데, 좌표 직접 검증으로 레이아웃 자체는 문제없음을 확정 — 헤드리스 캡처 렌더링 지연 문제로 결론).
-
-## CP5. 사용자 재검수 피드백 3건
-- [x] **[버그] 체력바 아이콘이 바 중심이 아니라 오른쪽 아래에 치우쳐 있었음**: `Health Bar Icon`의 `anchoredPosition.x`가 `Health Bar Background`의 실제 중심 x좌표와 다른 값으로 잘못 계산돼 있었음. 두 오브젝트의 anchor/pivot 기준으로 중심 x를 다시 계산해 정확히 일치시킴. `GetWorldCorners()`로 두 중심 좌표가 완전히 동일함(diff=0)을 확인.
-- [x] **체력바/실루엣 색상**: 체력 비율에 따라 `healthyColor`(밝은 회백색) ↔ `criticalColor`(빨강) 사이를 `Color.Lerp`로 보간해 체력바 채움과 실루엣 양쪽에 동일하게 적용. 100%=원래색, 20%=붉게 물듦을 코드로 확인.
-      Verify: 안전지대로 플레이어를 옮겨 좀비 공격 없이 깨끗한 상태에서 체력 100%→20% 변화 시 텍스트/fillAmount/두 이미지 색상이 전부 기대값과 정확히 일치함을 확인.
-
-## Slice 4 완료 (핵심 상태 = 체력만, Hunger/Stamina 등은 요청 없어 추가 안 함)
-
-# Checklist — 추가 기능: M키 전체 지도 창
-
-## CP1. 전체 지도 카메라
-- [x] `Assets/Textures/FullMapRenderTexture.renderTexture` 생성 (1024x1024).
-- [x] `Full Map Camera` 씬 오브젝트 생성: Orthographic size=16(레벨 전체 바운드 27x27을 여유있게 포함), 레벨 중심(-1.5, 15, 2)에 고정(플레이어 추적 안 함 — 전체 지도는 월드 고정), 컬링 마스크는 미니맵과 동일(Default+MinimapPlayer, 레이더 활성 시 MinimapZombie 추가), 기본 `enabled=false`(창 닫혀있을 때 렌더링 비용 없음).
-- [x] `MinimapRadarController.cs`에 `fullMapCamera` 필드 추가, `ShowZombies()`/`HideZombies()`가 미니맵 카메라와 전체 지도 카메라 양쪽의 컬링 마스크를 함께 토글하도록 수정.
-      Verify: 레이더 비활성 시 컬링 마스크=2049(좀비 제외), `ActivateRadar()` 호출 후 6145(좀비 포함)로 두 카메라 모두 동일하게 바뀜을 확인. 카메라 직접 캡처로 레벨 전체가 여백과 함께 프레임 안에 들어옴을 확인, 레이더 활성화 후 빨간 좀비 마커 2개가 실제로 나타남을 스크린샷으로 확인.
-
-## CP2. 지도 창 UI + 토글 입력
-- [x] `PlayerInput.cs`에 `toggleMap`(`KeyCode.M`) 추가, 게임오버 시 리셋.
-- [x] `UIManager.cs`에 `mapWindow`/`mapCamera` 필드 + `Update()`에서 M 입력 시 `mapWindow.SetActive` 반전과 `mapCamera.enabled`를 함께 토글하는 로직 추가.
-- [x] `HUD Canvas.prefab`에 `Map Window` 패널(제목 "지도", 정사각형 RawImage로 전체 지도 표시, 미니맵과 동일한 N/S/E/W 라벨, "[M] 닫기" 안내) 추가, 기본 비활성.
-      Verify: 리플렉션으로 토글 2회(열림→닫힘) 시 `mapWindow.activeSelf`와 `mapCamera.enabled`가 함께 정확히 반전됨을 확인.
-
-## [함정] 씬 오브젝트를 프리팹 에셋 필드에 대입하면 저장 시 null이 됨
-- `HUD Canvas.prefab`을 프리팹 스테이지에서 편집하며 `uiManager.mapCamera = GameObject.Find("Full Map Camera")...`처럼 **씬에만 존재하는 오브젝트**를 프리팹 에셋의 필드에 대입하면, 저장 시 조용히 null로 초기화됨(프리팹은 여러 씬에서 재사용 가능해야 하므로 특정 씬 오브젝트를 직접 참조할 수 없음 — Unity의 정상 동작).
-- **해결**: 프리팹 스테이지가 아니라 **씬에 배치된 인스턴스**에 직접 대입해야 하며, 대입 후 `EditorUtility.SetDirty` + 씬 저장만으로는 부족할 때가 있었음 — `SerializedObject`/`SerializedProperty.objectReferenceValue`로 명시적으로 설정하고 `ApplyModifiedProperties()`를 호출해야 프리팹 인스턴스 오버라이드로 확실히 기록됨.
-- **교훈**: 다음에 프리팹 안의 스크립트가 "특정 씬에만 있는 오브젝트"(예: 이번처럼 미니맵/지도 전용 카메라)를 참조해야 한다면, 반드시 프리팹 스테이지가 아니라 씬의 인스턴스에서, 가급적 `SerializedObject` API로 연결할 것.
-
-## CP3. "종이 지도" 컨셉 반영 (사용자 요청)
-- [x] `Full Map Camera`의 컬링 마스크를 `Default`(지형만) 하나로 축소 — `MinimapPlayer`/`MinimapZombie` 완전히 제외.
-- [x] `MinimapRadarController.cs`에서 `fullMapCamera` 필드와 관련 토글 로직 제거 — 전체 지도는 레이더와 무관하게 항상 마커 없음.
-      Verify: 레이더를 활성화한 상태에서도 전체 지도 카메라 컬링 마스크가 `1`(Default만)로 불변임을 코드로 확인, 카메라 직접 캡처로 플레이어/좀비 마커가 전혀 안 보이고 지형만 나타남을 확인.
-
-## CP4. 아이템도 종이 지도에서 안 보이게 (사용자 재지적)
-- [x] `Pickup` 레이어 신규 추가, `AmmoPack`/`HealthPack`/`Coin`/`RadarPack` 프리팹 전체(루트+자식)를 이 레이어로 이동.
-- [x] `Minimap Camera`(실시간 미니맵) 컬링 마스크엔 `Pickup`을 추가해 기존처럼 계속 보이게 유지 — 이번 요청은 전체지도(종이 지도)에 한정, 실시간 미니맵은 손대지 않음.
-- [x] `Full Map Camera`는 `Pickup`을 포함하지 않으므로 아이템 메시 자체는 자동으로 제외됨.
-      Verify: 프리팹 각각의 런타임 인스턴스 레이어가 13(Pickup)으로 정상 적용됨을 확인.
-- [x] **[추가 발견] 메시를 숨겨도 아이템의 실시간 Light(바닥을 비추는 조명, AmmoPack/HealthPack/Coin에 존재)가 지형(Default)을 밝혀 위치가 여전히 드러남** — 레이어 컬링은 메시 렌더링만 제어하고 조명 기여는 카메라별로 분리되지 않는 Unity/URP의 구조적 한계. 포스트프로세싱(Bloom) 끄기로는 해결 안 됨(직접 조명 자체가 원인, 확인 후 되돌림).
-      해결: `UIManager`에 `HidePickupLights()`/`RestorePickupLights()` 추가 — 지도가 열리는 순간 `Pickup` 레이어의 모든 `Light`를 찾아 비활성화하고, 닫히면 원복. 게임 본편(메인 카메라) 시야는 지도가 닫혀있는 한 항상 정상적으로 조명이 켜져있어 영향 없음.
-      Verify: 지도 열림 상태의 픽셀 색상이 "아이템이 아예 존재하지 않는" 기준값과 **완전히 동일**함을 확인(RGBA 완전 일치). 지도를 닫으면 조명이 `enabled=true`로 복구됨을 확인.
-
-## CP5. 진짜 "종이 지도"로 재설계 — 실시간 렌더링 폐기 (사용자 재지적)
-- 사용자 지적: "종이지도는 내가 그 위치에 있다고 해서 실시간 갱신이 되는 게 아니잖아" — 매번 카메라를 다시 그리는 지금 구조 자체가 컨셉과 안 맞음. 또한 플레이어의 **실제 3D 몸체**(마커가 아님)가 Default 레이어라 전체지도에 그대로 렌더링되고 있었음(마커만 레이어 분리해뒀지 실물은 안 옮겼던 누락).
-- [x] `Player Character.prefab`의 실제 렌더러 전부(Woman, Gun 각 부위, 이펙트 3종)를 `Player` 레이어(9)로 이동(`Minimap Marker`만 기존처럼 `MinimapPlayer` 유지). 콜라이더는 이미 루트가 `Player` 레이어라 영향 없음.
-      Verify: A/B 테스트 — 시작 시 촬영된 픽셀 색상과, 플레이어를 원점에서 아주 멀리 치운 뒤 재촬영한 같은 픽셀 색상이 **완전히 동일**함을 확인(애초에 플레이어가 안 찍히고 있었다는 뜻).
-- [x] `UIManager.cs`를 "지도 창을 열 때마다 다시 렌더링" 방식에서 **`Start()`에서 딱 한 번만 촬영 후 카메라 영구 비활성화**하는 방식으로 전면 변경. `HidePickupLights`/`RestorePickupLights` 워크어라운드는 이제 불필요해져서 완전히 제거(아이템은 스폰 딜레이가 있어 시작 시점엔 아직 존재하지 않으므로 애초에 안 찍힘).
-      Verify: `mapCamera.enabled`가 Start 직후부터 계속 `False`로 유지됨을 확인. 지도를 열어도 카메라가 다시 켜지지 않음(정적 텍스처만 보여줌). 저장된 텍스처를 PNG로 직접 읽어 시각 확인 — 플레이어/아이템/좀비 전부 없이 지형만 나옴.
-- [x] 좀비 사격 판정, 메인 카메라의 플레이어 렌더링(컬링 마스크에 `Player` 레이어 포함) 회귀 없음 확인.
+- [x] 좀비 관련 기존 스크립트(Zombie.cs, LivingEntity.cs) 회귀 없음 — 기존 `IDamageable.OnDamage()` 인터페이스를 그대로 재사용했으며 수정하지 않음. 좀비 AI/콜라이더/레이어는 변경 없이 정상 동작(테스트 중 좀비가 실제로 플레이어를 인식하고 공격하는 것도 확인됨).

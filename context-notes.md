@@ -264,3 +264,31 @@ Append-only. Verified project facts and decisions only.
 
 ### 남은 고려사항 (다음 세션 참고)
 - 지금은 씬이 하나뿐이고 지형이 게임 중 안 바뀌므로 "시작 시 1회 촬영"이 완벽하게 맞음. 나중에 Slice 6(월드 확장)에서 파괴 가능한 구조물이나 씬 전환이 생기면, 그때는 "지형이 바뀔 때만 다시 촬영" 같은 재바운드 로직이 필요할 수 있음 — 지금은 그런 요구가 없으므로 만들지 않음.
+
+## 2026-09-05 — 근접무기(삽) + 무기 전환 시스템 구현/검증
+
+### 설계 요약 (plan.md 참조)
+- 새 스켈레톤 애니메이션 없이 무기(Melee Weapon 오브젝트) 자체의 로컬 회전을 코루틴으로 Slerp — 손은 기존 IK 구조가 무기 손잡이(Left/Right Handle) 트랜스폼을 매 프레임 그대로 따라가므로 팔도 자연스럽게 따라 움직임.
+- `Gun.cs`/`MeleeWeapon.cs` 양쪽에 각자 `leftHandMount`/`rightHandMount` 필드를 두고, `PlayerShooter.OnAnimatorIK()`가 `currentWeapon`에 따라 그때그때 어느 쪽을 읽을지 고른다 — PlayerShooter 자신은 더 이상 고정 마운트 필드를 갖지 않음(예전엔 PlayerShooter가 직접 Gun의 Left/Right Handle을 가리키는 고정 필드를 가지고 있었으나, 무기 전환을 지원하려면 이 구조가 맞지 않아 제거함).
+- `PlayerShooter.EquipWeapon(WeaponType)`이 유일한 무기 상태 변경 지점 — Q키 입력(`PlayerInput.switchWeapon`)과 `OnEnable`(재활성화 시 현재 상태 복원)이 모두 이 메서드 하나로 수렴.
+
+### [중요 검증 기법] 헤드리스 환경에서 짧은 코루틴(스윙) 중간 프레임을 잡는 법
+- 코루틴 스윙 지속시간이 0.3~0.4초인데, MCP 툴 왕복 지연은 보통 3~6초라서 "Attack() 호출 → 잠시 후 상태 확인" 방식으로는 스윙이 이미 완전히 끝난 뒤의 상태만 보게 됨(실제로 이 문제 때문에 첫 시도에서 "데미지가 전혀 안 들어간 것처럼" 보이는 착시를 겪음 — 실제 원인은 아래 항목 참고).
+- 해결: `UnityEditor.EditorApplication.isPaused = true`로 에디터를 일시정지한 뒤, `Attack()`을 호출(코루틴의 첫 `yield` 이전 부분은 `StartCoroutine` 호출 시 동기적으로 즉시 실행됨)하고, 이후 `UnityEditor.EditorApplication.Step()`을 반복 호출해 정확히 한 프레임씩 진행시키며 매 스텝마다 회전값/체력을 샘플링. 이러면 실제 통신 지연과 무관하게 결정론적으로 스윙의 모든 프레임을 관찰 가능. `Time.timeScale`을 늦추는 방식도 시도했지만 여전히 왕복 지연이 스케일된 스윙 전체 길이보다 길어질 수 있어 신뢰도가 낮음 — `isPaused`+`Step()` 조합이 훨씬 확실함.
+- 이 기법으로 확인: 무기 로컬 회전이 대기자세(-50°)→스윙자세(80°)까지 매 프레임 부드럽게 변함, 스윙 진행률 t≈0.4 지점에서 정확히 1회만 `DetectHit()`이 실행되어 좀비 체력이 즉시 감소함(중복 판정 없음), 스윙 종료 후 다시 대기자세로 복귀함.
+
+### [발견/함정] 헤드리스 실시간 테스트 중 플레이어가 실제로 죽을 수 있음
+- 근접 판정을 테스트하려고 좀비를 플레이어 코앞(공격 사거리 이내)으로 순간이동시킨 뒤, 여러 번의 느린 MCP 툴 왕복(각각 수 초) 동안 그대로 방치했더니 **좀비 AI가 실제로 플레이어를 공격해 죽임** — `PlayerHealth.health`가 `-100`까지 떨어지고 `GameManager.isGameover=true`가 되면서 `PlayerShooter.enabled`가 `false`로 꺼짐(사망 시 비활성화되는 기존 로직). 그 상태에서는 `meleeWeapon.gameObject`도 `OnDisable()`에 의해 비활성화되어 있어서, 이후 `Attack()`을 호출해도 콘솔에 `"Coroutine couldn't be started because the the game object 'Melee Weapon' is inactive!"` 경고만 남고 아무 일도 안 일어남 — 처음엔 이걸 "판정 로직 버그"로 오인할 뻔했으나, `read_console`로 정확한 원인을 확인함(에러 메시지를 추측하지 말고 그대로 읽을 것 — CLAUDE.md 10장).
+- 교훈: 헤드리스 상태에서 좀비를 강제로 플레이어 근처에 두고 여러 툴 호출에 걸쳐 방치하는 테스트 방식은 실제 게임 상태(플레이어 사망)를 오염시킬 수 있음. 이후 검증부터는 `isPaused=true` 상태를 테스트 시작부터 유지해 좀비/AI가 전혀 움직이지 못하게 고정한 뒤에만 좀비를 근접 배치하고 판정을 진행함 — 죽지 않은 깨끗한 플레이어 상태로 재검증 완료.
+- 실제 데미지 적용 자체는 `DetectHit()`을 리플렉션으로 직접 호출한 별도 테스트로도 격리 검증됨(체력 10→-70, OverlapSphere가 좀비의 복합 콜라이더 2개를 모두 맞혀 40데미지×2 적용) — 판정 로직 자체는 처음부터 정상이었고, 문제는 항상 테스트 시나리오의 실시간 방치였음.
+
+### [발견] 임시 검증용 카메라보다 `manage_camera screenshot`이 훨씬 안정적
+- 씬에 임시 `GameObject`+`Camera`를 만들어 `Camera.Render()`+`ReadPixels()`로 스크린샷을 뜨는 기존 방식은, 카메라 위치를 손으로 대충 잡으면 묘지 오벨리스크 같은 전경 장애물에 가리거나, 가로등 불빛 이펙트(카메라 각도에 따라 납작한 판으로 깨져 보이는 half-용 실시간 조명용 평면)에 화면이 뒤덮이는 등 예측 불가능한 결과가 잦았음.
+- `mcp__unityMCP__manage_camera`의 `screenshot` 액션(`camera` 파라미터 생략 시 `ScreenCapture` API로 실제 게임 화면을 그대로 캡처, `view_target`/`view_position`으로 특정 좌표에서 촬영도 가능)을 쓰니 실제 게임의 조명/카메라 리그를 그대로 재사용해서 훨씬 안정적으로 원하는 장면(플레이어가 삽을 든 모습)을 확인할 수 있었음. 다음에 무기/캐릭터 포즈를 스크린샷으로 확인해야 할 때는 임시 카메라를 직접 만들지 말고 이 툴을 먼저 시도할 것.
+
+### 최종 확인된 사실
+- `Melee Weapon.prefab`은 `Player Character.prefab`의 `Gun Pivot/Melee Weapon` 경로에 존재, 기본 비활성. `PlayerShooter.meleeWeapon` 필드가 이를 가리킴.
+- `Gun.leftHandMount`/`rightHandMount` = 각자의 "Left Handle"/"Right Handle" 자식(총 프리팹 자체 기존 구조 그대로, 로직 변경 없음).
+- `MeleeWeapon.hittableLayers` = `Enemy` 레이어(비트값 1024)만 포함 — 총과 달리 레이어마스크로 판정 대상을 제한(총의 `Physics.Raycast`는 레이어마스크 없이 전체 레이어를 맞히는 기존 동작 그대로 유지, 변경하지 않음).
+- Q키(`PlayerInput.switchWeapon`)로 전환, 좌클릭(`fire`)이 현재 무기에 따라 `gun.Fire()` 또는 `meleeWeapon.Attack()`으로 라우팅됨. 재장전은 Gun 장착 중에만 동작.
+- 탄약 UI(`UIManager.UpdateAmmoText`)는 무기 종류와 무관하게 항상 Gun의 탄약을 표시함(Melee 장착 중에도 갱신됨) — 이번 요청 범위에서 "무기별 UI 분기"는 요구되지 않아 손대지 않음, 필요 시 다음 세션에서 개선 가능.

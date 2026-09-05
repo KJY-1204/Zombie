@@ -13,6 +13,8 @@ public class Gun : MonoBehaviour {
     public State state { get; private set; } // 현재 총의 상태
 
     public Transform fireTransform; // 총알이 발사될 위치
+    public Transform leftHandMount; // 왼손이 위치할 손잡이 트랜스폼
+    public Transform rightHandMount; // 오른손이 위치할 손잡이 트랜스폼
 
     public ParticleSystem muzzleFlashEffect; // 총구 화염 효과
     public ParticleSystem shellEjectEffect; // 탄피 배출 효과
