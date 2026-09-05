@@ -32641,6 +32641,10 @@ MonoBehaviour:
   - {fileID: 1208000543}
   - {fileID: 1208000542}
   - {fileID: 1208000541}
+  hordeBurstSize: 50
+  maxZombiesAlive: 200
+  hordeSpawnPerFrame: 12
+  offscreenMargin: 0.08
 --- !u!4 &1421313826
 Transform:
   m_ObjectHideFlags: 0

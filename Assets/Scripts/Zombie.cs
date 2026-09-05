@@ -87,6 +87,11 @@ public class Zombie : LivingEntity {
         NoiseManager.OnNoiseEmitted -= OnNoiseHeard;
     }
 
+    // 추적 대상을 즉시 강제 지정 (화면 밖에서 스폰되는 무리가 곧바로 달려오게 하기 위함)
+    public void ForceTarget(LivingEntity target) {
+        targetEntity = target;
+    }
+
     // 소리가 발생했을 때 반경 안에 있으면 그 위치를 조사하러 이동하도록 표시
     private void OnNoiseHeard(Vector3 position, float radius) {
         if (dead) return;
