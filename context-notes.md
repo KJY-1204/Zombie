@@ -89,3 +89,30 @@ Append-only. Verified project facts and decisions only.
 - `PlayerMovement.FixedUpdate`에서 `Move` 파라미터를 `이동 방향 · 캐릭터 정면 방향`(내적, Dot Product)으로 계산하도록 변경. 순수 좌우 이동이면 내적이 0에 가까워져 Idle에 가깝게 블렌드되고(기존엔 Run이 재생되던 것), 전진/후진은 그대로 ±1 근처로 정확히 매핑됨.
 - **[발견한 함정]** `RotateTowardsMouse()`에서 `playerRigidbody.rotation = newRotation;`으로 회전을 직접 대입한 직후 같은 프레임에서 `transform.forward`를 읽으면, 이 헤드리스 세션(물리 스텝이 실제로 안 돌아감)에서는 Transform이 갱신되지 않은 값을 반환함(실제 플레이 중에는 즉시 동기화되어 문제없을 가능성이 높지만 확신할 수 없었음). **방어적으로 수정**: `RotateTowardsMouse()`가 방금 계산한 회전으로부터 정면 방향(`Vector3`)을 직접 반환하도록 바꾸고, `FixedUpdate`는 그 반환값을 그대로 내적 계산에 사용 — Transform 동기화 타이밍에 전혀 의존하지 않게 됨.
 - 리플렉션으로 `RotateTowardsMouse`가 카메라 정면 대각선(0.71,0,0.71)을 향하도록 수렴시킨 뒤 W/S/A/D 각각의 `animMoveParam`을 계산해 검증: 전진=1.00, 후진=-1.00, 좌스트레이프=0.00, 우스트레이프=0.00, 대각선(W+D)=0.71 — 의도한 대로 정확히 나옴.
+
+## 2026-09-05 — Slice 2: 레이더로 좀비 임시 표시
+
+### 아이템/싱글톤 기존 패턴 재사용
+- `IItem.Use(GameObject target)` + `PlayerHealth.OnTriggerEnter`가 트리거 충돌 시 자동 호출하는 기존 픽업 패턴(`AmmoPack.cs` 참고)을 그대로 따라 `RadarPack.cs` 작성. 인벤토리(Slice 3) 없이도 "주우면 즉시 발동"으로 동작.
+- `MinimapRadarController`는 `GameManager`/`UIManager`와 동일한 싱글톤 패턴(`public static instance` + lazy `FindObjectOfType` + `Awake` 중복 파괴) 사용.
+
+### 레이어/마커 설계
+- `MinimapZombie` 레이어(슬롯 12) 추가. `Zombie.prefab`에 Player와 동일한 기법(Quad, 로컬 회전 `(90,0,0)`)으로 마커 자식 추가 — Slice 1에서 이미 "Quad 뒷면 방향" 함정을 검증해뒀기 때문에 이번엔 바로 올바른 회전값을 사용, 재발 없음.
+- 마커가 좀비 프리팹의 자식이라 좀비 스폰/파괴에 따라 자동으로 생성/파괴됨 — 레이더 컨트롤러나 스포너 쪽에 별도 등록/해제 로직이 전혀 필요 없음(이벤트 기반 관리, 매 프레임 스캔 없음 — CLAUDE.md 13.6 권장사항 그대로 충족).
+
+### `MinimapRadarController` 구현 및 검증
+- 코루틴 대신 `Update()`에서 `Time.time >= revealEndTime` 체크하는 방식 채택 — `Time.timeScale` 변경 없이 동작(CLAUDE.md 18장 요구사항), 씬 전환 등으로 오브젝트가 파괴돼도 코루틴 잔존 문제가 원천적으로 없음.
+- `ActivateRadar()`는 이미 활성 중이어도 `revealEndTime = Time.time + revealDuration`을 항상 재대입 — "재사용 시 처음부터 다시 카운트" 요구사항을 별도 분기 없이 자연스럽게 충족.
+- 검증 방법(헤드리스라 실시간 타이머 흐름은 못 봄, 로직을 직접 호출/픽셀 검사로 확정):
+  - `cam.cullingMask` 값 변화(2049 ↔ 6145, 4096=`1<<MinimapZombie`)로 on/off 확인.
+  - `Camera.Render()` 강제 호출 + `WorldToViewportPoint` + `ReadPixels`로 좀비 마커의 실제 렌더링 픽셀이 마커 머티리얼 색과 정확히 일치함을 확인(카메라가 좀비 위치까지 못 따라가는 헤드리스 한계를 카메라를 임시로 좀비 위치로 옮겨서 우회).
+  - `revealEndTime` 필드를 리플렉션으로 과거 시각으로 설정 후 `Update()` 1회 호출 → 정상적으로 꺼짐.
+
+### RadarPack.prefab 구성
+- 전용 3D 모델이 없어 Sphere 프리미티브(스케일 0.4)에 시안색 Unlit 머티리얼(`RadarPackVisual.mat`)을 입힌 placeholder 비주얼 사용 — 나중에 실제 아트가 생기면 이 자식만 교체하면 됨.
+- 루트: `SphereCollider`(trigger, radius 0.4) + `Rotator`(기존 재사용) + `RadarPack`. 자식 비주얼에는 콜라이더 없음(루트 트리거 하나로만 픽업 판정, AmmoPack과 동일 구조).
+- `manage_prefabs create_from_gameobject`로 씬에 임시로 만든 GameObject를 프리팹화한 뒤, 스폰 전용으로만 쓸 것이라 씬에 남은 인스턴스는 삭제하고 `Item Spawner.items` 배열에만 등록함.
+
+### 회귀 확인
+- 좀비 점블랭크 레이캐스트: `layer=10(Enemy)`, `IDamageable`/`NavMeshAgent` 정상 — 마커 자식 추가가 기존 컴포넌트에 영향 없음.
+- `AmmoPack.Use()` 재확인: 탄약 100→130 정상 증가, 기존 픽업 회귀 없음.
