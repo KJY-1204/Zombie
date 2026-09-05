@@ -231,3 +231,20 @@ Append-only. Verified project facts and decisions only.
 
 ### [함정] 프리팹 에셋에 씬 오브젝트를 대입하면 저장 시 null이 됨 — 반드시 기록해둘 것
 - 위 checklist.md에 상세 기록. 요약: 프리팹 스테이지 안에서 `GameObject.Find`로 찾은 씬 오브젝트를 프리팹 필드에 넣고 저장하면 그 참조가 사라짐. 씬의 인스턴스에서 `SerializedObject`로 다시 연결해야 함. 이 프로젝트에서 미니맵/카메라 관련 참조를 늘릴 때마다 반복될 수 있는 함정이므로 다음에도 주의.
+
+## 2026-09-05 — 전체 지도(종이 지도) 후속: 아이템 완전 은폐
+
+### 사용자 재지적: "아이템도 표시되면 컨셉이 이상하다"
+- 전체 지도의 컬링 마스크가 `Default`였는데, `AmmoPack`/`HealthPack`/`Coin`/`RadarPack` 픽업이 전부 `Default` 레이어라 그대로 나타나고 있었음.
+- 1차 조치: `Pickup`(슬롯 13) 레이어 신설, 4개 픽업 프리팹 전체를 이 레이어로 이동. `manage_prefabs open_prefab_stage` 대신 `PrefabUtility.LoadPrefabContents`/`SaveAsPrefabAsset`로 헤드리스하게 처리(프리팹 스테이지를 열고 닫는 왕복 없이 한 번에 끝남 — 여러 프리팹을 일괄 수정할 때 더 빠름, 다음에도 이 방식 우선 고려).
+- **실시간 미니맵(우측 상단)에는 영향 주지 않음** — 사용자는 "전체지도"만 문제 삼았으므로, `Minimap Camera` 컬링 마스크엔 `Pickup`을 추가해 그대로 아이템이 계속 보이게 유지함(범위를 벗어난 변경 안 함).
+
+### [발견] 레이어를 옮겨도 아이템의 실시간 조명이 위치를 드러냄
+- `AmmoPack`/`HealthPack`/`Coin`에는 작은 Light(range=1, intensity=1)가 달려 있어 바닥을 은은하게 비춤(3D 게임 화면에서 아이템을 눈에 띄게 하는 의도된 연출). 메시를 `Pickup` 레이어로 옮겨 카메라 렌더링에서는 빠졌지만, **조명이 비추는 바닥(Default 레이어, 전체 지도에서도 보임)은 여전히 밝아져서 아이템 위치가 미묘하게 드러남** — 픽셀 차등 비교로 실측 확인(아이템 활성/비활성 시 같은 좌표 색상이 또렷하게 다름).
+- 원인 오판 주의: 처음엔 포스트프로세싱(Bloom)이 밝은 지점을 부풀리는 거라 추측해 `Full Map Camera`에 `UniversalAdditionalCameraData`를 추가하고 `m_RenderPostProcessing=false`로 꺼봤지만 **차이가 그대로 남아 있었음** → Bloom이 원인이 아니라 URP의 실시간 직접광 자체가 지형에 색을 입히는 것이 원인이었음. 관련 없는 시도였으므로 포스트프로세싱 설정은 다시 `true`로 되돌림(불필요한 변경 남기지 않기).
+- **핵심 교훈**: Unity/URP의 실시간 Light는 "어느 오브젝트를 비출지"(Light.cullingMask)는 있어도 "어느 카메라에서 보일지"는 카메라의 `cullingMask`로 제어되지 않음 — 조명 기여는 카메라와 무관하게 씬 전역으로 계산됨. 즉 레이어 기반 카메라 컬링만으로는 "이 카메라에서만 조명 효과를 숨기기"가 불가능하다(URP의 Rendering Layers/Forward+ 기능을 쓰면 가능하지만 렌더러 에셋 전역 설정을 바꿔야 해서 이번 사소한 지도 이슈치고는 과함).
+
+### 최종 해결: 지도가 열려있는 "순간에만" 조명을 직접 끔
+- `UIManager.HidePickupLights()`: M키로 지도를 여는 순간, `FindObjectsByType<Light>()`로 씬의 모든 Light를 스캔해 `layer==Pickup`인 것만 `enabled=false`로 끄고 리스트에 저장(매 프레임이 아니라 지도를 열 때 딱 1회만 스캔 — CLAUDE.md의 "매 프레임 스캔 금지" 원칙 준수).
+- `UIManager.RestorePickupLights()`: 지도를 닫는 순간 저장해둔 조명들을 다시 켬. 지도가 닫혀있는 한(대부분의 플레이 시간) 조명은 항상 정상 상태라 메인 게임 화면 연출엔 전혀 영향 없음.
+- 검증: 지도 연 상태의 특정 픽셀 색상이 "그 아이템이 씬에 아예 없는" 경우와 **완전히 동일한 RGBA 값**으로 나옴을 확인 — 메시와 조명 둘 다 완벽히 은폐됨. 지도를 닫으면 조명이 다시 켜짐도 확인.

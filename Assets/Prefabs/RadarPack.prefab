@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 1346721821914025616}
   - component: {fileID: 6352834877860654224}
   - component: {fileID: 3863049283781198262}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: Antenna
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -101,7 +101,7 @@ GameObject:
   - component: {fileID: 1364139938858484561}
   - component: {fileID: 1297223628174757466}
   - component: {fileID: 3325459296652371650}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: Dish
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -191,7 +191,7 @@ GameObject:
   - component: {fileID: 3065575639555520833}
   - component: {fileID: 2040951117375393559}
   - component: {fileID: 2380113701437173661}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: Base
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -282,7 +282,7 @@ GameObject:
   - component: {fileID: 850146069402669882}
   - component: {fileID: 5871346262145088949}
   - component: {fileID: 4451371664111832944}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: RadarPack
   m_TagString: Untagged
   m_Icon: {fileID: 0}

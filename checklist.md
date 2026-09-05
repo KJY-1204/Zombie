@@ -57,3 +57,12 @@
 - [x] `Full Map Camera`의 컬링 마스크를 `Default`(지형만) 하나로 축소 — `MinimapPlayer`/`MinimapZombie` 완전히 제외.
 - [x] `MinimapRadarController.cs`에서 `fullMapCamera` 필드와 관련 토글 로직 제거 — 전체 지도는 레이더와 무관하게 항상 마커 없음.
       Verify: 레이더를 활성화한 상태에서도 전체 지도 카메라 컬링 마스크가 `1`(Default만)로 불변임을 코드로 확인, 카메라 직접 캡처로 플레이어/좀비 마커가 전혀 안 보이고 지형만 나타남을 확인.
+
+## CP4. 아이템도 종이 지도에서 안 보이게 (사용자 재지적)
+- [x] `Pickup` 레이어 신규 추가, `AmmoPack`/`HealthPack`/`Coin`/`RadarPack` 프리팹 전체(루트+자식)를 이 레이어로 이동.
+- [x] `Minimap Camera`(실시간 미니맵) 컬링 마스크엔 `Pickup`을 추가해 기존처럼 계속 보이게 유지 — 이번 요청은 전체지도(종이 지도)에 한정, 실시간 미니맵은 손대지 않음.
+- [x] `Full Map Camera`는 `Pickup`을 포함하지 않으므로 아이템 메시 자체는 자동으로 제외됨.
+      Verify: 프리팹 각각의 런타임 인스턴스 레이어가 13(Pickup)으로 정상 적용됨을 확인.
+- [x] **[추가 발견] 메시를 숨겨도 아이템의 실시간 Light(바닥을 비추는 조명, AmmoPack/HealthPack/Coin에 존재)가 지형(Default)을 밝혀 위치가 여전히 드러남** — 레이어 컬링은 메시 렌더링만 제어하고 조명 기여는 카메라별로 분리되지 않는 Unity/URP의 구조적 한계. 포스트프로세싱(Bloom) 끄기로는 해결 안 됨(직접 조명 자체가 원인, 확인 후 되돌림).
+      해결: `UIManager`에 `HidePickupLights()`/`RestorePickupLights()` 추가 — 지도가 열리는 순간 `Pickup` 레이어의 모든 `Light`를 찾아 비활성화하고, 닫히면 원복. 게임 본편(메인 카메라) 시야는 지도가 닫혀있는 한 항상 정상적으로 조명이 켜져있어 영향 없음.
+      Verify: 지도 열림 상태의 픽셀 색상이 "아이템이 아예 존재하지 않는" 기준값과 **완전히 동일**함을 확인(RGBA 완전 일치). 지도를 닫으면 조명이 `enabled=true`로 복구됨을 확인.

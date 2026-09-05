@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic; // List 사용
+using UnityEngine;
 using UnityEngine.SceneManagement; // 씬 관리자 관련 코드
 using UnityEngine.UI; // UI 관련 코드
 
@@ -40,6 +41,7 @@ public class UIManager : MonoBehaviour {
 
     private PlayerInput playerInput; // 상태 창 토글 입력을 읽어올 컴포넌트
     private LivingEntity playerLivingEntity; // 체력을 조회할 대상
+    private readonly List<Light> hiddenPickupLights = new List<Light>(); // 지도 창이 열린 동안 임시로 꺼둔 아이템 조명
 
     private void Awake() {
         // 플레이어의 입력/체력 컴포넌트를 찾아 캐싱
@@ -70,6 +72,17 @@ public class UIManager : MonoBehaviour {
             bool nowActive = !mapWindow.activeSelf;
             mapWindow.SetActive(nowActive);
             mapCamera.enabled = nowActive;
+
+            // 종이 지도 컨셉: 아이템 조명이 바닥을 비춰 위치가 드러나지 않도록
+            // 지도가 열린 동안만 임시로 꺼두고, 닫히면 원래대로 복구
+            if (nowActive)
+            {
+                HidePickupLights();
+            }
+            else
+            {
+                RestorePickupLights();
+            }
         }
 
         // 상태 창이 열려있는 동안에만 내용을 갱신
@@ -87,6 +100,33 @@ public class UIManager : MonoBehaviour {
             statusHealthBarFill.color = tint;
             statusSilhouette.color = tint;
         }
+    }
+
+    // 지도가 열려있는 동안 Pickup 레이어 오브젝트의 조명을 꺼서
+    // 바닥에 비치는 빛으로 아이템 위치가 드러나지 않게 함(지도 닫으면 원복)
+    private void HidePickupLights() {
+        int pickupLayer = LayerMask.NameToLayer("Pickup");
+        Light[] allLights = FindObjectsByType<Light>(FindObjectsSortMode.None);
+        foreach (Light light in allLights)
+        {
+            if (light.gameObject.layer == pickupLayer && light.enabled)
+            {
+                light.enabled = false;
+                hiddenPickupLights.Add(light);
+            }
+        }
+    }
+
+    // HidePickupLights()로 꺼두었던 아이템 조명을 다시 켬
+    private void RestorePickupLights() {
+        foreach (Light light in hiddenPickupLights)
+        {
+            if (light != null)
+            {
+                light.enabled = true;
+            }
+        }
+        hiddenPickupLights.Clear();
     }
 
     // 탄약 텍스트 갱신

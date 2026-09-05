@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 4624426078767040}
   - component: {fileID: 33498344031593328}
   - component: {fileID: 23442205588886420}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: '_Combined_Mesh_[Heart]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -104,7 +104,7 @@ GameObject:
   - component: {fileID: 114435103929562082}
   - component: {fileID: 6452220189210036171}
   - component: {fileID: 2655725409237971670}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: HealthPack
   m_TagString: Untagged
   m_Icon: {fileID: 0}
