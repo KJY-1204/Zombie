@@ -116,3 +116,8 @@ Append-only. Verified project facts and decisions only.
 ### 회귀 확인
 - 좀비 점블랭크 레이캐스트: `layer=10(Enemy)`, `IDamageable`/`NavMeshAgent` 정상 — 마커 자식 추가가 기존 컴포넌트에 영향 없음.
 - `AmmoPack.Use()` 재확인: 탄약 100→130 정상 증가, 기존 픽업 회귀 없음.
+
+## 2026-09-05 — RadarPack 비주얼을 구체에서 탐지기 모양으로 교체 (사용자 요청)
+- 전용 3D 모델이 없는 제약은 그대로라, 프리미티브 3개(Cylinder 받침대 + 얇은 Cylinder 안테나 기둥 + 45도 기울어진 납작한 Sphere 접시)를 조합해 "탐지기/레이더 안테나" 실루엣을 만듦. 전부 기존 `RadarPackVisual.mat`(시안색 Unlit) 재사용, 콜라이더는 전부 제거(루트의 SphereCollider 트리거 하나로만 픽업 판정, 기존 구조 그대로).
+- `manage_camera screenshot`의 `view_position`/`view_target`으로 원하는 각도에서 직접 스크린샷을 찍어 모양을 눈으로 확인(플레이어 근처에 임시 스폰 → 확인 후 파괴, 씬에는 흔적 안 남김).
+- 루트의 기존 `Rotator` 컴포넌트가 그대로 적용되어 천천히 자전 — "스캔하는 레이더"처럼 보이는 효과를 의도치 않게 공짜로 얻음.
