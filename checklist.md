@@ -24,9 +24,10 @@
       **[수정된 버그]** 최초 구현 시 회전을 `(-90,0,0)`으로 넣어 Quad 뒷면이 미니맵 카메라를 향해 실제로는 전혀 렌더링되지 않고 있었음(회색 기본 머티리얼이라 눈치채지 못함). 노란색으로 바꾼 뒤 픽셀 검사로 발견, 올바른 회전 `(90,0,0)`으로 수정 완료 — 자세한 진단 과정은 context-notes.md 참조.
 
 ## CP6. 방위 라벨 (사용자 추가 요청)
-- [x] `HUD Canvas.prefab`의 `Minimap` 아래 `Label North/South/East/West` 4개 추가 (기존 HUD와 동일한 `Kenney Future Narrow` 폰트, fontSize 12, Bold, 흰색).
+- [x] `HUD Canvas.prefab`의 `Minimap` 아래 `Label North/South/East/West` 4개 추가.
 - [x] 원형 마스크 바깥의 `Minimap`(마스크 아님) 오브젝트에 자식으로 추가해 원형 클리핑에 잘리지 않게 함, 각각 상/하/좌/우 앵커에 고정(정북 고정 미니맵이라 방위가 회전하지 않음).
-      Verify: 스크린샷 크롭 확대로 N(위)/S(아래)/E(오른쪽)/W(왼쪽) 배치와 텍스트 정상 표시 확인.
+- [x] **가독성 개선(사용자 요청)**: fontSize 12→22로 확대, 폰트를 `Kenney Future Narrow`(장식체, 작은 크기에서 흐릿함)에서 `Assets/TextMesh Pro/Fonts/LiberationSans.ttf`(레거시 `UI.Text`로 사용, 이미 프로젝트에 포함되어 있던 에셋이라 신규 임포트 불필요)로 교체해 또렷하게 표시. N만 빨간색(`RGBA(1, 0.15, 0.15, 1)`)으로 강조, 나머지는 흰색 유지.
+      Verify: 스크린샷 크롭 확대(3배)로 N(빨강, 위)/S/E/W(흰색) 전부 또렷하게 읽힘 확인.
 
 ## CP5. 통합 검증
 - [x] Unity 컴파일 에러 0건.
