@@ -20,4 +20,11 @@
 - [x] `healthSlider` 참조가 코드 전체에 남아있지 않음(grep 확인).
 - [x] 플레이 중 콘솔 에러 없음(테스트 중 실제 사망 이벤트 발생했으나 예외 없이 정상 처리됨 — GameManager 게임오버 흐름 회귀 없음).
 
+## CP4. PZ 스타일 시각적 참고 반영 (사용자가 예시 이미지 제공)
+- 사용자가 Project Zomboid의 실제 상태창 스크린샷 2장을 공유. 부위별 부상/붕대/체온/운동 탭 등 깊은 시뮬레이션 포함 — 확인 결과 **시각적 스타일만 참고**하기로 확정(부위별 부상 시스템 등은 만들지 않음).
+- [x] `Assets/Sprites/Status Body Silhouette.png` 생성 (원+사각형 조합으로 그린 단순 사람 실루엣, 120x224, 코드로 절차적 생성).
+- [x] 상태 창 레이아웃을 실루엣(좌측) + 세로 체력바(우측, Image Filled/Vertical) + 체력바 하단 아이콘(기존 인벤토리 체력 아이콘 재사용) + 상단 퍼센트 텍스트로 재구성. 패널 크기 340x340으로 확대.
+- [x] `UIManager.cs`에 `statusHealthBarFill`(Image) 필드 추가, `Update()`에서 `fillAmount = health/startingHealth`로 갱신(텍스트도 "체력 70%" 형식으로 변경).
+      Verify: 코드로 데미지 30 적용 후 상태창 열어 `healthText="체력 70%"`, `fillAmount=0.7` 정확히 일치 확인. `RectTransform.GetWorldCorners()`로 패널이 화면(1515x862) 안쪽 중앙(553~960, 227~634)에 정확히 위치함을 좌표로 확인(스크린샷이 반복적으로 안 보였는데, 좌표 직접 검증으로 레이아웃 자체는 문제없음을 확정 — 헤드리스 캡처 렌더링 지연 문제로 결론).
+
 ## Slice 4 완료 (핵심 상태 = 체력만, Hunger/Stamina 등은 요청 없어 추가 안 함)

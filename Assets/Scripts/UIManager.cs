@@ -28,7 +28,8 @@ public class UIManager : MonoBehaviour {
     public GameObject gameoverUI; // 게임 오버시 활성화할 UI
 
     public GameObject statusWindow; // I 키로 여닫는 상태 창
-    public Text statusHealthText; // 상태 창의 체력 표시 텍스트
+    public Text statusHealthText; // 상태 창의 체력 퍼센트 텍스트
+    public Image statusHealthBarFill; // 상태 창의 세로 체력바 채움 이미지
 
     private PlayerInput playerInput; // 상태 창 토글 입력을 읽어올 컴포넌트
     private LivingEntity playerLivingEntity; // 체력을 조회할 대상
@@ -56,8 +57,12 @@ public class UIManager : MonoBehaviour {
         // 상태 창이 열려있는 동안에만 내용을 갱신
         if (statusWindow.activeSelf && playerLivingEntity != null)
         {
-            statusHealthText.text = "체력  " + Mathf.CeilToInt(playerLivingEntity.health)
-                + " / " + Mathf.CeilToInt(playerLivingEntity.startingHealth);
+            float ratio = playerLivingEntity.startingHealth > 0
+                ? playerLivingEntity.health / playerLivingEntity.startingHealth : 0f;
+            ratio = Mathf.Clamp01(ratio);
+
+            statusHealthText.text = "체력 " + Mathf.RoundToInt(ratio * 100f) + "%";
+            statusHealthBarFill.fillAmount = ratio;
         }
     }
 
