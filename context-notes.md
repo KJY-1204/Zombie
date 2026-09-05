@@ -292,3 +292,9 @@ Append-only. Verified project facts and decisions only.
 - `MeleeWeapon.hittableLayers` = `Enemy` 레이어(비트값 1024)만 포함 — 총과 달리 레이어마스크로 판정 대상을 제한(총의 `Physics.Raycast`는 레이어마스크 없이 전체 레이어를 맞히는 기존 동작 그대로 유지, 변경하지 않음).
 - Q키(`PlayerInput.switchWeapon`)로 전환, 좌클릭(`fire`)이 현재 무기에 따라 `gun.Fire()` 또는 `meleeWeapon.Attack()`으로 라우팅됨. 재장전은 Gun 장착 중에만 동작.
 - 탄약 UI(`UIManager.UpdateAmmoText`)는 무기 종류와 무관하게 항상 Gun의 탄약을 표시함(Melee 장착 중에도 갱신됨) — 이번 요청 범위에서 "무기별 UI 분기"는 요구되지 않아 손대지 않음, 필요 시 다음 세션에서 개선 가능.
+
+## 2026-09-05 — 세션 종료 (다른 컴퓨터에서 이어서 작업 예정)
+
+- 이 시점까지 커밋 `bb7a9d1`까지 전부 GitHub `origin/main`에 push 완료. 로컬에 미커밋/미푸시 변경 없음(`git status --short` 깨끗함).
+- `checklist.md`는 근접무기 슬라이스의 완료 기록으로 전부 체크됨 — 다음 슬라이스(차량 등)를 시작할 때는 이 파일을 그 슬라이스용 새 체크리스트로 덮어써도 됨(과거 슬라이스 완료 기록은 git 히스토리와 `plan.md`/`context-notes.md`에 이미 남아있으므로 보존 목적으로 유지할 필요는 없음).
+- 다음 세션 시작 시 `plan.md` 최상단 "현재 상태 요약" 섹션을 먼저 읽을 것.
