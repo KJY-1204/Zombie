@@ -1,33 +1,33 @@
-# Checklist — Slice 2: 레이더로 좀비 임시 표시
+# Checklist — Slice 3: 인벤토리 foundation (체력팩 + 레이더)
 
-## CP1. 레이어 + 좀비 미니맵 마커
-- [x] `MinimapZombie` 레이어 추가 (슬롯 12).
-- [x] `Zombie.prefab`에 미니맵 전용 마커(Quad, 로컬 회전 (90,0,0) — Slice 1에서 검증된 방향, 콜라이더 없음, layer=MinimapZombie, scale 0.7) 자식 추가.
-- [x] `Assets/Materials/MinimapZombieMarker.mat` 생성 (URP Unlit, 빨간색 RGBA(1, 0.15, 0.1, 1)).
+## CP1. ItemData 및 하위 클래스
+- [x] `Assets/Scripts/ItemData.cs` 신규 (추상 ScriptableObject, `displayName` + `abstract Use(GameObject target)`).
+- [x] `Assets/Scripts/HealthItemData.cs` 신규 (`health` 필드, `HealthPack.Use()`의 회복 로직 이전).
+- [x] `Assets/Scripts/RadarItemData.cs` 신규 (`RadarPack.Use()`의 레이더 발동 로직 이전).
+- [x] `Assets/ScriptableData/Health Item Data.asset`, `Radar Item Data.asset` 생성.
       Verify: 컴파일 에러 0건.
 
-## CP2. MinimapRadarController
-- [x] `Assets/Scripts/MinimapRadarController.cs` 신규 생성, `Minimap Camera`에 부착.
-- [x] 싱글톤 패턴(GameManager와 동일), `ActivateRadar()`(타이머 갱신 + 컬링 마스크 토글), `Update()`에서 만료 체크(`Time.time` 기준, timeScale 영향 없음).
-      Verify: 코드로 `ActivateRadar()` 호출 → 컬링 마스크 2049→6145(MinimapZombie 비트 포함) 확인. `Camera.Render()`+`ReadPixels`로 좀비 마커 위치 픽셀이 정확히 마커 색상(RGBA 1,0.149,0.102,1)으로 렌더링됨을 픽셀 단위로 확인. `revealEndTime`을 과거로 강제 설정 후 `Update()` 리플렉션 호출 → 마스크 6145→2049(제외) 확인. 활성 중 재사용 시 `revealEndTime`이 항상 `Time.time+revealDuration`으로 재설정됨(리셋) 확인.
+## CP2. Inventory 컴포넌트
+- [x] `Assets/Scripts/Inventory.cs` 신규, 슬롯 4칸, `Add`/`UseSlot` 구현.
+- [x] `PlayerInput.cs`에 `useSlot1`(Alpha1)/`useSlot2`(Alpha2) 추가.
+- [x] `Player Character.prefab`에 `Inventory` 컴포넌트 부착.
+      Verify: `Add(healthItemData,2)` → 슬롯 반영("1:체력팩 x2") 확인. `UseSlot(0)` → 체력 70→120(+50) 회복 + 수량 2→1 차감 확인. `Add(radarItemData,1)`+`UseSlot(1)` → 컬링 마스크 2049→6145(레이더 활성화) + 수량 1→0(슬롯 소진, UI에서 사라짐) 확인.
 
-## CP3. RadarPack 아이템
-- [x] `Assets/Scripts/RadarPack.cs` 신규 생성 (IItem, AmmoPack과 동일 패턴).
-- [x] `Assets/Materials/RadarPackVisual.mat` 생성 (URP Unlit, 시안색 RGBA(0.15, 0.95, 1, 1)).
-- [x] `Assets/Prefabs/RadarPack.prefab` 생성 (SphereCollider trigger radius 0.4 + Rotator + RadarPack + Sphere 비주얼 자식 scale 0.4, 자식엔 콜라이더 없음).
-- [x] 씬의 `Item Spawner`의 `items` 배열에 RadarPack 추가 (AmmoPack/HealthPack/Coin과 함께 무작위 스폰 풀에 편입).
-      Verify: `RadarPack.Use(player)` 직접 호출 → `MinimapRadarController.instance` 통해 컬링 마스크가 정상적으로 좀비 포함 상태로 바뀜 확인(Destroy는 프레임 종료 시 처리되는 Unity 정상 동작).
+## CP3. 픽업 스크립트 연동
+- [x] `HealthPack.cs` 수정: `itemData` 필드 추가, `Use()`가 `Inventory.Add()` 호출로 변경(직접 회복 제거).
+- [x] `RadarPack.cs` 수정: `itemData` 필드 추가, `Use()`가 `Inventory.Add()` 호출로 변경(직접 레이더 발동 제거).
+- [x] `HealthPack.prefab`/`RadarPack.prefab`에 각각 itemData 에셋 연결.
+      Verify: `HealthPack.Use(player)` 호출 시 체력 변화 없이(120→120) 인벤토리에만 추가됨 확인(회귀: 더 이상 즉시 회복 안 함). `RadarPack.Use(player)`도 컬링 마스크 변화 없이(2049→2049) 인벤토리에만 추가됨 확인.
 
-## CP4. 통합 검증
+## CP4. UI
+- [x] `UIManager.cs`에 `inventoryText` 필드 + `UpdateInventoryText(string)` 추가.
+- [x] `HUD Canvas.prefab`에 `Inventory Text` 오브젝트 추가(Ammo Display 위, 좌하단).
+      Verify: `Add`/`UseSlot` 호출마다 `UIManager.inventoryText.text`가 실제로 갱신되고, 빈 슬롯은 표시에서 빠짐을 확인.
+
+## CP5. 통합 검증
 - [x] Unity 컴파일 에러 0건.
-- [x] 좀비 점블랭크 레이캐스트로 `layer=10(Enemy)`, `IDamageable` 정상, `NavMeshAgent` 정상 확인 — 마커 추가로 인한 회귀 없음.
-- [x] `AmmoPack.Use()` 회귀 테스트: 탄약 100→130 정상 증가 확인.
+- [x] `AmmoPack.Use()` 회귀 확인: 탄약 100→130 그대로 즉시 적용됨(변경 없음).
+- [x] 좀비 점블랭크 레이캐스트: `layer=10(Enemy)`, `IDamageable` 정상 — 회귀 없음.
 
-## CP5. RadarPack 비주얼 개선 (사용자 요청)
-- [x] `RadarPack.prefab`의 구체 비주얼을 받침대+안테나+기울어진 접시 형태(프리미티브 3개 조합, 콜라이더 없음)로 교체.
-      Verify: 플레이 중 근처에 임시 스폰 후 여러 각도에서 스크린샷으로 탐지기 실루엣 확인, 회귀 없이 정리.
-- [x] **배색 개선(사용자 요청)**: 본체(Base+Antenna)를 기존 `Gray.mat`(어두운 회색)로, 접시(Dish)만 초록(RGBA 0.25,1,0.35)으로 남겨 대비를 줌 — 단색 하늘색 문제 해결.
-      Verify: 스크린샷으로 회색 본체+초록 접시 대비 확인.
-
-## Slice 2 완료
-위 CP1~CP4 전부 검증 완료. 다음은 `plan.md`의 Slice 3(인벤토리 foundation)으로 진행 — 지금은 아이템을 주우면 즉시 발동되는 임시 패턴이고, Slice 3에서 실제 인벤토리에 저장했다가 원할 때 사용하는 방식으로 교체 예정.
+## Slice 3 완료
+위 CP1~CP5 전부 검증 완료. 다음은 `plan.md`의 Slice 4(플레이어 상태 UI)로 진행.

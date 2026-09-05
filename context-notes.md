@@ -126,3 +126,27 @@ Append-only. Verified project facts and decisions only.
 - 본체(Base+Antenna)는 기존 `Assets/Materials/Gray.mat`(어두운 회색, Lit, 재사용 — 새 에셋 안 만듦)로 교체해 "기기 하우징" 느낌을 줌.
 - 접시(Dish)만 `RadarPackVisual.mat`의 `_BaseColor`를 하늘색→초록(0.25, 1, 0.35)으로 변경해 유지(Unlit이라 조명과 무관하게 항상 밝게 빛나는 "활성 센서" 느낌). 이 머티리얼은 Dish에만 쓰이므로 색 변경이 다른 곳에 영향 없음.
 - 결과: 어두운 회색 본체 위에 밝은 초록 접시가 대비되어 "레이더 탐지기" 실루엣이 한층 분명해짐(스크린샷으로 확인).
+
+## 2026-09-05 — Slice 3: 인벤토리 foundation (체력팩 + 레이더)
+
+### 스코프 결정 (사용자 확인)
+- 체력팩+레이더만 "모았다가 원할 때 사용"하는 진짜 인벤토리 아이템으로 전환. 탄약/코인은 지금처럼 줍자마자 즉시 적용 유지(별도 손 안 댐 — `AmmoPack.cs`/`Coin.cs`/`ItemSpawner.cs` 전혀 수정 안 함).
+- 사용 방식: 숫자키 1/2로 해당 슬롯 즉시 사용(인벤토리 창 UI는 만들지 않음).
+
+### 아키텍처
+- `ItemData`(추상 ScriptableObject) → `HealthItemData`/`RadarItemData`가 상속, 각각 기존 `HealthPack.Use()`/`RadarPack.Use()`에 있던 효과 로직을 그대로 옮겨받음(`ZombieData`/`GunData`와 동일한 `[CreateAssetMenu(menuName="Scriptable/...")]` 컨벤션).
+- `Inventory`(신규, `Player Character`에 부착, 싱글톤 아님 — `PlayerHealth`/`PlayerShooter`처럼 그냥 플레이어 소유 컴포넌트): 고정 4슬롯 배열. `Add(data, amount)`는 같은 데이터면 수량만 합치고, 없으면 빈 슬롯에 배치. `UseSlot(index)`가 `data.Use(gameObject)` 호출 후 수량 차감, 0이면 슬롯 비움.
+- `HealthPack.cs`/`RadarPack.cs`는 이제 효과를 직접 실행하지 않고 `target.GetComponent<Inventory>().Add(itemData, 1)`만 호출 — "픽업(월드 오브젝트)"과 "효과(ItemData)"와 "저장소(Inventory)"가 명확히 분리됨.
+- UI는 기존 `UIManager.UpdateAmmoText`/`UpdateScoreText` 패턴을 그대로 따라 `UpdateInventoryText(string)` 추가 — `Inventory`가 상태 바뀔 때마다 호출(매 프레임 아님). HUD Canvas의 `Ammo Display` 패널 바로 위(좌하단)에 `Inventory Text`를 배치해 "1:체력팩 x2  2:레이더 x1" 형식으로 표시, 빈 슬롯은 표시 안 함.
+- `PlayerInput.cs`에 `useSlot1`(`KeyCode.Alpha1`)/`useSlot2`(`KeyCode.Alpha2`) 추가, 게임오버 시 false로 리셋(기존 `fire`/`reload`와 동일 패턴). `Inventory.Update()`가 이 플래그를 읽어 `UseSlot(0)`/`UseSlot(1)` 호출.
+
+### 검증 (헤드리스 세션, 코드 직접 호출로 확정)
+- `Add(healthItemData,2)` → 슬롯/UI 반영 확인 → `UseSlot(0)` → 실제 체력 70→120(+50) 회복 + 수량 2→1 차감 확인.
+- `Add(radarItemData,1)` → `UseSlot(1)` → 컬링 마스크 2049→6145(레이더 실제 발동) + 수량 소진 시 슬롯이 UI 표시에서 사라짐 확인 — **레이더가 체력팩과 완전히 동일한 범용 경로(`ItemData.Use`)로 동작함**을 증명(하드코딩 없음, CLAUDE.md 13.3/16장 요구사항 충족).
+- `HealthPack.Use(player)`/`RadarPack.Use(player)`를 직접 호출해 이제 즉시 효과가 발생하지 않고(체력/컬링마스크 불변) 인벤토리에만 담기는 것을 확인(과거 동작과 명확히 달라졌음을 회귀 테스트로 증명).
+- `AmmoPack.Use()`는 여전히 즉시 적용(100→130) — 이번 변경과 무관함을 재확인.
+- 좀비 점블랭크 레이캐스트로 사격 판정 회귀 없음 재확인.
+
+### 알아두면 좋은 것 (다음 세션 참고)
+- `LivingEntity.RestoreHealth`는 상한 클램프가 없어서 체력이 시작 체력(100)을 넘어 120까지 올라가는 게 관찰됨 — 이번에 옮긴 로직 그대로라 **기존부터 있던 동작**(회귀 아님, 손 안 댐). 나중에 체력 상한 처리가 필요하면 `LivingEntity.cs`를 볼 것.
+- 인벤토리는 지금 "창" UI가 없고 상시 노출되는 한 줄 텍스트뿐 — Slice 4(플레이어 상태 UI)나 이후 요청 시 아이콘/슬롯 그래픽으로 발전시킬 수 있음.

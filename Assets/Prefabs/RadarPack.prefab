@@ -353,3 +353,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 63140470c91793645ae5f399a517fb69, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RadarPack
+  itemData: {fileID: 11400000, guid: 50ed8842d6ad8464db2dfcc3c0b9b870, type: 2}

@@ -480,6 +480,7 @@ GameObject:
   - component: {fileID: 8512681968067611311}
   - component: {fileID: 8512681968067611305}
   - component: {fileID: 8512681968067611307}
+  - component: {fileID: 9191621454210502026}
   m_Layer: 9
   m_Name: Player Character
   m_TagString: Player
@@ -705,9 +706,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveAxisName: Vertical
-  rotateAxisName: Horizontal
+  strafeAxisName: Horizontal
   fireButtonName: Fire1
   reloadButtonName: Reload
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!114 &8512681968067611305
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -738,6 +742,27 @@ MonoBehaviour:
   gunPivot: {fileID: 8512681967524257243}
   leftHandMount: {fileID: 8515293378983329677}
   rightHandMount: {fileID: 8516899839005347435}
+--- !u!114 &9191621454210502026
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8512681968067578880}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc738cc6817132c4985dddb290e568e7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Inventory
+  slots:
+  - data: {fileID: 0}
+    quantity: 0
+  - data: {fileID: 0}
+    quantity: 0
+  - data: {fileID: 0}
+    quantity: 0
+  - data: {fileID: 0}
+    quantity: 0
 --- !u!1 &8512681968067579300
 GameObject:
   m_ObjectHideFlags: 0

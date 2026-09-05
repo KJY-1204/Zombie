@@ -1,21 +1,18 @@
 ﻿using UnityEngine;
 
-// 체력을 회복하는 아이템
+// 인벤토리에 담기는 체력팩 아이템
 public class HealthPack : MonoBehaviour, IItem {
-    public float health = 50; // 체력을 회복할 수치
+    public ItemData itemData; // 인벤토리에 추가할 아이템 데이터
 
     public void Use(GameObject target) {
-        // 전달받은 게임 오브젝트로부터 LivingEntity 컴포넌트 가져오기 시도
-        LivingEntity life = target.GetComponent<LivingEntity>();
-
-        // LivingEntity컴포넌트가 있다면
-        if (life != null)
+        // 전달받은 게임 오브젝트의 인벤토리에 아이템 추가
+        Inventory inventory = target.GetComponent<Inventory>();
+        if (inventory != null)
         {
-            // 체력 회복 실행
-            life.RestoreHealth(health);
+            inventory.Add(itemData, 1);
         }
 
-        // 사용되었으므로, 자신을 파괴
+        // 인벤토리에 담겼으므로, 월드에 있던 자신을 파괴
         Destroy(gameObject);
     }
 }

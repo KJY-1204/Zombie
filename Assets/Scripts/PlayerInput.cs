@@ -14,6 +14,8 @@ public class PlayerInput : MonoBehaviour {
     public float strafe { get; private set; } // 감지된 좌우 움직임 입력값
     public bool fire { get; private set; } // 감지된 발사 입력값
     public bool reload { get; private set; } // 감지된 재장전 입력값
+    public bool useSlot1 { get; private set; } // 인벤토리 1번 슬롯 사용 입력값
+    public bool useSlot2 { get; private set; } // 인벤토리 2번 슬롯 사용 입력값
     public Vector3 mouseWorldPosition { get; private set; } // 마우스 커서가 가리키는 바닥 위 월드 좌표
 
     // 매프레임 사용자 입력을 감지
@@ -26,6 +28,8 @@ public class PlayerInput : MonoBehaviour {
             strafe = 0;
             fire = false;
             reload = false;
+            useSlot1 = false;
+            useSlot2 = false;
             return;
         }
 
@@ -36,6 +40,9 @@ public class PlayerInput : MonoBehaviour {
         fire = Input.GetButton(fireButtonName);
         // reload에 관한 입력 감지
         reload = Input.GetButtonDown(reloadButtonName);
+        // 인벤토리 슬롯 사용 입력 감지 (숫자키 1, 2)
+        useSlot1 = Input.GetKeyDown(KeyCode.Alpha1);
+        useSlot2 = Input.GetKeyDown(KeyCode.Alpha2);
 
         // 마우스 조준 위치 갱신
         UpdateMouseWorldPosition();
