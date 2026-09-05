@@ -22,6 +22,10 @@ public class Zombie : LivingEntity {
     public float timeBetAttack = 0.5f; // 공격 간격
     private float lastAttackTime; // 마지막 공격 시점
 
+    private Vector3 noiseTarget; // 조사하러 이동 중인 소리 발생 위치
+    private float noiseExpireTime = -1f; // 이 시점까지만 소리를 쫓아감
+    public float noiseInvestigateDuration = 12f; // 소리를 들은 뒤 추적할 유지 시간
+
     // 추적할 대상이 존재하는지 알려주는 프로퍼티
     private bool hasTarget
     {
@@ -74,6 +78,27 @@ public class Zombie : LivingEntity {
         StartCoroutine(UpdatePath());
     }
 
+    private void OnEnable() {
+        // 총소리 등 큰 소리 이벤트 구독
+        NoiseManager.OnNoiseEmitted += OnNoiseHeard;
+    }
+
+    private void OnDisable() {
+        NoiseManager.OnNoiseEmitted -= OnNoiseHeard;
+    }
+
+    // 소리가 발생했을 때 반경 안에 있으면 그 위치를 조사하러 이동하도록 표시
+    private void OnNoiseHeard(Vector3 position, float radius) {
+        if (dead) return;
+
+        float dist = Vector3.Distance(transform.position, position);
+        if (dist <= radius)
+        {
+            noiseTarget = position;
+            noiseExpireTime = Time.time + noiseInvestigateDuration;
+        }
+    }
+
     private void Update() {
         // 추적 대상의 존재 여부에 따라 다른 애니메이션을 재생
         zombieAnimator.SetBool("HasTarget", hasTarget);
@@ -93,11 +118,10 @@ public class Zombie : LivingEntity {
             }
             else
             {
-                // 추적 대상 없음 : AI 이동 중지
-                navMeshAgent.isStopped = true;
-
-                // 20 유닛의 반지름을 가진 가상의 구를 그렸을때, 구와 겹치는 모든 콜라이더를 가져옴
-                // 단, whatIsTarget 레이어를 가진 콜라이더만 가져오도록 필터링
+                // 추적 대상 없음 : 20 유닛의 반지름을 가진 가상의 구를 그렸을때,
+                // 구와 겹치는 모든 콜라이더를 가져옴 (whatIsTarget 레이어만)
+                // 소리를 쫓아 이동 중이더라도 매번 새로 대상을 찾을 수 있어야
+                // 근처까지 다가온 실제 플레이어를 놓치지 않는다
                 Collider[] colliders =
                     Physics.OverlapSphere(transform.position, 20f, whatIsTarget);
 
@@ -116,6 +140,24 @@ public class Zombie : LivingEntity {
                         // for문 루프 즉시 정지
                         break;
                     }
+                }
+
+                if (hasTarget)
+                {
+                    // 방금 대상을 새로 찾음 : 바로 추적 시작
+                    navMeshAgent.isStopped = false;
+                    navMeshAgent.SetDestination(targetEntity.transform.position);
+                }
+                else if (Time.time < noiseExpireTime)
+                {
+                    // 실제 대상은 없지만 최근 들린 소리가 있다면 그 위치로 이동
+                    navMeshAgent.isStopped = false;
+                    navMeshAgent.SetDestination(noiseTarget);
+                }
+                else
+                {
+                    // 추적할 대상도, 조사할 소리도 없음 : AI 이동 중지
+                    navMeshAgent.isStopped = true;
                 }
             }
 

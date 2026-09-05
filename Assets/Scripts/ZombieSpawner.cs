@@ -11,6 +11,19 @@ public class ZombieSpawner : MonoBehaviour {
     private List<Zombie> zombies = new List<Zombie>(); // 생성된 좀비들을 담는 리스트
     private int wave; // 현재 웨이브
 
+    private DayNightCycle dayNightCycle; // 낮/밤 상태를 확인할 대상
+    private bool wasNight; // 직전 프레임의 밤 여부 (낮->밤/밤->낮 전환 감지용)
+
+    private void Start() {
+        dayNightCycle = FindObjectOfType<DayNightCycle>();
+        wasNight = IsNight();
+    }
+
+    // 밤인지 여부. DayNightCycle을 찾을 수 없으면 기존 동작(항상 스폰)을 유지하기 위해 true로 취급
+    private bool IsNight() {
+        return dayNightCycle == null || dayNightCycle.IsNight;
+    }
+
     private void Update() {
         // 게임 오버 상태일때는 생성하지 않음
         if (GameManager.instance != null && GameManager.instance.isGameover)
@@ -18,14 +31,35 @@ public class ZombieSpawner : MonoBehaviour {
             return;
         }
 
-        // 좀비를 모두 물리친 경우 다음 스폰 실행
-        if (zombies.Count <= 0)
+        bool isNight = IsNight();
+
+        // 낮이 막 시작된 시점이라면 남아있는 좀비를 전부 정리 (아침에는 좀비가 없어야 함)
+        if (wasNight && !isNight)
+        {
+            ClearAllZombies();
+        }
+        wasNight = isNight;
+
+        // 밤에만 웨이브를 스폰
+        if (isNight && zombies.Count <= 0)
         {
             SpawnWave();
         }
 
         // UI 갱신
         UpdateUI();
+    }
+
+    // 낮이 시작될 때 남아있는 좀비를 점수/이펙트 없이 즉시 제거
+    private void ClearAllZombies() {
+        for (int i = zombies.Count - 1; i >= 0; i--)
+        {
+            if (zombies[i] != null)
+            {
+                Destroy(zombies[i].gameObject);
+            }
+        }
+        zombies.Clear();
     }
 
     // 웨이브 정보를 UI로 표시

@@ -26,6 +26,7 @@ public class Gun : MonoBehaviour {
     public GunData gunData; // 총의 현재 데이터
     
     private float fireDistance = 50f; // 사정거리
+    public float noiseRadius = 50f; // 총소리가 좀비들에게 들리는 반경
 
     public int ammoRemain = 100; // 남은 전체 탄약
     public int magAmmo; // 현재 탄창에 남아있는 탄약
@@ -105,6 +106,9 @@ public class Gun : MonoBehaviour {
 
         // 발사 이펙트 재생 시작
         StartCoroutine(ShotEffect(hitPosition));
+
+        // 총소리를 주변 좀비들에게 알림 (몰려오게 하기 위함)
+        NoiseManager.EmitNoise(fireTransform.position, noiseRadius);
 
         // 남은 탄환의 수를 -1
         magAmmo--;
