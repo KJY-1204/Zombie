@@ -35,6 +35,9 @@ public class UIManager : MonoBehaviour {
     public Color healthyColor = new Color(0.85f, 0.85f, 0.9f, 1f); // 체력 100%일 때 색
     public Color criticalColor = new Color(0.9f, 0.15f, 0.15f, 1f); // 체력 0%일 때 색
 
+    public GameObject mapWindow; // M 키로 여닫는 전체 지도 창
+    public Camera mapCamera; // 지도 창이 열려있을 때만 렌더링할 전체 지도 카메라
+
     private PlayerInput playerInput; // 상태 창 토글 입력을 읽어올 컴포넌트
     private LivingEntity playerLivingEntity; // 체력을 조회할 대상
 
@@ -47,8 +50,11 @@ public class UIManager : MonoBehaviour {
             playerLivingEntity = player.GetComponent<LivingEntity>();
         }
 
-        // 상태 창은 기본적으로 닫혀있음
+        // 상태 창/지도 창은 기본적으로 닫혀있음
         statusWindow.SetActive(false);
+        mapWindow.SetActive(false);
+        // 지도 카메라는 창이 열려있을 때만 렌더링해 불필요한 비용을 줄임
+        mapCamera.enabled = false;
     }
 
     private void Update() {
@@ -56,6 +62,14 @@ public class UIManager : MonoBehaviour {
         if (playerInput != null && playerInput.toggleStatus)
         {
             statusWindow.SetActive(!statusWindow.activeSelf);
+        }
+
+        // M 키 입력 시 전체 지도 창 열기/닫기 토글
+        if (playerInput != null && playerInput.toggleMap)
+        {
+            bool nowActive = !mapWindow.activeSelf;
+            mapWindow.SetActive(nowActive);
+            mapCamera.enabled = nowActive;
         }
 
         // 상태 창이 열려있는 동안에만 내용을 갱신

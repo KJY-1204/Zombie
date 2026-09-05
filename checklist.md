@@ -33,3 +33,22 @@
       Verify: 안전지대로 플레이어를 옮겨 좀비 공격 없이 깨끗한 상태에서 체력 100%→20% 변화 시 텍스트/fillAmount/두 이미지 색상이 전부 기대값과 정확히 일치함을 확인.
 
 ## Slice 4 완료 (핵심 상태 = 체력만, Hunger/Stamina 등은 요청 없어 추가 안 함)
+
+# Checklist — 추가 기능: M키 전체 지도 창
+
+## CP1. 전체 지도 카메라
+- [x] `Assets/Textures/FullMapRenderTexture.renderTexture` 생성 (1024x1024).
+- [x] `Full Map Camera` 씬 오브젝트 생성: Orthographic size=16(레벨 전체 바운드 27x27을 여유있게 포함), 레벨 중심(-1.5, 15, 2)에 고정(플레이어 추적 안 함 — 전체 지도는 월드 고정), 컬링 마스크는 미니맵과 동일(Default+MinimapPlayer, 레이더 활성 시 MinimapZombie 추가), 기본 `enabled=false`(창 닫혀있을 때 렌더링 비용 없음).
+- [x] `MinimapRadarController.cs`에 `fullMapCamera` 필드 추가, `ShowZombies()`/`HideZombies()`가 미니맵 카메라와 전체 지도 카메라 양쪽의 컬링 마스크를 함께 토글하도록 수정.
+      Verify: 레이더 비활성 시 컬링 마스크=2049(좀비 제외), `ActivateRadar()` 호출 후 6145(좀비 포함)로 두 카메라 모두 동일하게 바뀜을 확인. 카메라 직접 캡처로 레벨 전체가 여백과 함께 프레임 안에 들어옴을 확인, 레이더 활성화 후 빨간 좀비 마커 2개가 실제로 나타남을 스크린샷으로 확인.
+
+## CP2. 지도 창 UI + 토글 입력
+- [x] `PlayerInput.cs`에 `toggleMap`(`KeyCode.M`) 추가, 게임오버 시 리셋.
+- [x] `UIManager.cs`에 `mapWindow`/`mapCamera` 필드 + `Update()`에서 M 입력 시 `mapWindow.SetActive` 반전과 `mapCamera.enabled`를 함께 토글하는 로직 추가.
+- [x] `HUD Canvas.prefab`에 `Map Window` 패널(제목 "지도", 정사각형 RawImage로 전체 지도 표시, 미니맵과 동일한 N/S/E/W 라벨, "[M] 닫기" 안내) 추가, 기본 비활성.
+      Verify: 리플렉션으로 토글 2회(열림→닫힘) 시 `mapWindow.activeSelf`와 `mapCamera.enabled`가 함께 정확히 반전됨을 확인.
+
+## [함정] 씬 오브젝트를 프리팹 에셋 필드에 대입하면 저장 시 null이 됨
+- `HUD Canvas.prefab`을 프리팹 스테이지에서 편집하며 `uiManager.mapCamera = GameObject.Find("Full Map Camera")...`처럼 **씬에만 존재하는 오브젝트**를 프리팹 에셋의 필드에 대입하면, 저장 시 조용히 null로 초기화됨(프리팹은 여러 씬에서 재사용 가능해야 하므로 특정 씬 오브젝트를 직접 참조할 수 없음 — Unity의 정상 동작).
+- **해결**: 프리팹 스테이지가 아니라 **씬에 배치된 인스턴스**에 직접 대입해야 하며, 대입 후 `EditorUtility.SetDirty` + 씬 저장만으로는 부족할 때가 있었음 — `SerializedObject`/`SerializedProperty.objectReferenceValue`로 명시적으로 설정하고 `ApplyModifiedProperties()`를 호출해야 프리팹 인스턴스 오버라이드로 확실히 기록됨.
+- **교훈**: 다음에 프리팹 안의 스크립트가 "특정 씬에만 있는 오브젝트"(예: 이번처럼 미니맵/지도 전용 카메라)를 참조해야 한다면, 반드시 프리팹 스테이지가 아니라 씬의 인스턴스에서, 가급적 `SerializedObject` API로 연결할 것.

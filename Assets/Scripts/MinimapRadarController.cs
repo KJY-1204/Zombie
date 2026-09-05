@@ -19,6 +19,7 @@ public class MinimapRadarController : MonoBehaviour {
     private static MinimapRadarController m_instance; // 싱글톤이 할당될 static 변수
 
     public float revealDuration = 10f; // 레이더 사용 시 좀비가 노출되는 시간(초)
+    public Camera fullMapCamera; // 전체 지도 창에서도 동일하게 좀비를 표시/숨김 처리할 카메라
 
     private Camera minimapCamera; // 좀비 레이어를 토글할 미니맵 카메라
     private int minimapZombieLayerMask; // MinimapZombie 레이어에 해당하는 비트마스크
@@ -60,11 +61,19 @@ public class MinimapRadarController : MonoBehaviour {
     private void ShowZombies() {
         revealing = true;
         minimapCamera.cullingMask |= minimapZombieLayerMask;
+        if (fullMapCamera != null)
+        {
+            fullMapCamera.cullingMask |= minimapZombieLayerMask;
+        }
     }
 
     // 미니맵 카메라 컬링 마스크에서 MinimapZombie 레이어를 제외해 좀비를 숨김
     private void HideZombies() {
         revealing = false;
         minimapCamera.cullingMask &= ~minimapZombieLayerMask;
+        if (fullMapCamera != null)
+        {
+            fullMapCamera.cullingMask &= ~minimapZombieLayerMask;
+        }
     }
 }
