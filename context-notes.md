@@ -121,3 +121,8 @@ Append-only. Verified project facts and decisions only.
 - 전용 3D 모델이 없는 제약은 그대로라, 프리미티브 3개(Cylinder 받침대 + 얇은 Cylinder 안테나 기둥 + 45도 기울어진 납작한 Sphere 접시)를 조합해 "탐지기/레이더 안테나" 실루엣을 만듦. 전부 기존 `RadarPackVisual.mat`(시안색 Unlit) 재사용, 콜라이더는 전부 제거(루트의 SphereCollider 트리거 하나로만 픽업 판정, 기존 구조 그대로).
 - `manage_camera screenshot`의 `view_position`/`view_target`으로 원하는 각도에서 직접 스크린샷을 찍어 모양을 눈으로 확인(플레이어 근처에 임시 스폰 → 확인 후 파괴, 씬에는 흔적 안 남김).
 - 루트의 기존 `Rotator` 컴포넌트가 그대로 적용되어 천천히 자전 — "스캔하는 레이더"처럼 보이는 효과를 의도치 않게 공짜로 얻음.
+
+### 2026-09-05 — 색상 배색 개선 (사용자 요청: "단색 하늘색은 탐지기와 안 어울림")
+- 본체(Base+Antenna)는 기존 `Assets/Materials/Gray.mat`(어두운 회색, Lit, 재사용 — 새 에셋 안 만듦)로 교체해 "기기 하우징" 느낌을 줌.
+- 접시(Dish)만 `RadarPackVisual.mat`의 `_BaseColor`를 하늘색→초록(0.25, 1, 0.35)으로 변경해 유지(Unlit이라 조명과 무관하게 항상 밝게 빛나는 "활성 센서" 느낌). 이 머티리얼은 Dish에만 쓰이므로 색 변경이 다른 곳에 영향 없음.
+- 결과: 어두운 회색 본체 위에 밝은 초록 접시가 대비되어 "레이더 탐지기" 실루엣이 한층 분명해짐(스크린샷으로 확인).
