@@ -11,5 +11,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/House Interior.unity
     guid: af04763f192420a4a8c7cb9ed60a47bd
+  - enabled: 1
+    path: Assets/Scenes/Store Interior.unity
+    guid: c3a497d9bcec1d74a8ce152ccd37ce2b
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

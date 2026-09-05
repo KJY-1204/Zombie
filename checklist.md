@@ -37,8 +37,16 @@
 - [x] Play Mode 종합 검증: 건물 입구 트리거 진입→`House Interior`로 순간이동→퇴장→정확한 문 앞 위치로 복귀(왕복 전부 확인), 총 발사 회귀 없음(magAmmo 25→24), 좀비 2마리 정상 스폰+NavMesh 위치(`isOnNavMesh=true`), 진입 가능 건물이 NavMesh를 정상 차단, 콘솔 에러 0건.
 - [x] `manage_scene save`(Main, House Interior), `git status`로 변경 파일이 두 씬/새 스크립트 3개/신규 재질들/`Assets/Models/City`/`EditorBuildSettings.asset`로만 국한됨을 확인.
 
+## CP17. 도시 구역 확장 (2차: 거리 연장 + 입구 2개 추가)
+- [x] 사용자 확인: "도시 구역 더 확장" 선택.
+- [x] 교차로 배치를 시도했으나 기존 건물 10동이 이미 도로 X축 대부분을 촘촘히 채우고 있어 십자 교차로용 여유 공간이 부족 — 대신 Ground를 90x90으로 확대하고 같은 큰길을 동서로 연장, 양 끝에 건물 4동(북 2/남 2) 추가하는 방향으로 조정(교차로는 다음 확장 때 별도 공간에 배치 예정, `context-notes.md`에 기록).
+- [x] `Assets/Scenes/Store Interior.unity` 신규 — House Interior와 다른 형태(더 넓고 낮은 방, 선반 3개+계산대)로 시각적 차별화, (4000,0,4000) 포켓 좌표에 배치, Build Settings 등록.
+- [x] 새 입구 2개 배치: `Building North Store Entrance`(X=36) → Store Interior 신규 연결, 기존 `Building South 1`(X=-12) → House Interior 재사용 연결(문 마커를 노란색으로 변경해 입구 표시).
+- [x] `City Boundary`/`Full Map Camera`(orthoSize 40→50)를 90x90 크기에 맞게 재조정, NavMesh 재굽기+에셋 재저장.
+      Verify: Play Mode에서 신규 Store 입구, 재사용 House 입구 둘 다 왕복 전환 검증(각각 정확한 스폰/복귀 좌표로 텔레포트, `sceneCount` 2→1 정상 전환). 좀비 스폰/총 발사 회귀 없음. 콘솔 에러 0건.
+
 ## 다음 단계 (사용자에게 보고 후 순서대로 진행 예정)
-- 도시 구역 확장: 교차로/더 많은 거리·건물, 추가 건물 내부(상점/사무실 등 인테리어 템플릿 다양화).
+- 도시 구역: 별도 공간에 진짜 교차로 배치(더 큰 Ground 필요), 인테리어 템플릿 추가 다양화.
 - 광산(채석장/노천광 형태, 터널 입구→터널 내부 씬 연결) 구역.
 - 지하 방공호(콘크리트 벙커 입구→벙커 내부 씬 연결) 구역.
 - 시골 구역 재구축(이번에 삭제된 농장 컨셉을 새 대형 맵의 한 구역으로 재배치).
