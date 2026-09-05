@@ -19,6 +19,7 @@ public class PlayerInput : MonoBehaviour {
     public bool switchWeapon { get; private set; } // 무기 전환 입력값
     public bool toggleStatus { get; private set; } // 상태 창을 여닫는 입력값
     public bool toggleMap { get; private set; } // 전체 지도 창을 여닫는 입력값
+    public bool interact { get; private set; } // 건물/터널/벙커 입구 상호작용 입력값
     public Vector3 mouseWorldPosition { get; private set; } // 마우스 커서가 가리키는 바닥 위 월드 좌표
 
     // 매프레임 사용자 입력을 감지
@@ -36,6 +37,7 @@ public class PlayerInput : MonoBehaviour {
             switchWeapon = false;
             toggleStatus = false;
             toggleMap = false;
+            interact = false;
             return;
         }
 
@@ -55,6 +57,8 @@ public class PlayerInput : MonoBehaviour {
         toggleStatus = Input.GetKeyDown(KeyCode.I);
         // 전체 지도 창 토글 입력 감지 (M 키)
         toggleMap = Input.GetKeyDown(KeyCode.M);
+        // 건물/터널/벙커 입구 상호작용 입력 감지 (E 키)
+        interact = Input.GetKeyDown(KeyCode.E);
 
         // 마우스 조준 위치 갱신
         UpdateMouseWorldPosition();

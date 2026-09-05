@@ -38,6 +38,9 @@ public class UIManager : MonoBehaviour {
     public GameObject mapWindow; // M 키로 여닫는 전체 지도 창
     public Camera mapCamera; // 게임 시작 시 지형을 한 번만 촬영할 전체 지도 카메라
 
+    public GameObject interactPrompt; // 건물/터널/벙커 입구 근처에서 표시할 상호작용 안내 창
+    public Text interactPromptText; // 상호작용 안내 문구 텍스트
+
     private PlayerInput playerInput; // 상태 창 토글 입력을 읽어올 컴포넌트
     private LivingEntity playerLivingEntity; // 체력을 조회할 대상
 
@@ -50,9 +53,10 @@ public class UIManager : MonoBehaviour {
             playerLivingEntity = player.GetComponent<LivingEntity>();
         }
 
-        // 상태 창/지도 창은 기본적으로 닫혀있음
+        // 상태 창/지도 창/상호작용 안내는 기본적으로 닫혀있음
         statusWindow.SetActive(false);
         mapWindow.SetActive(false);
+        if (interactPrompt != null) interactPrompt.SetActive(false);
     }
 
     private void Start() {
@@ -116,6 +120,19 @@ public class UIManager : MonoBehaviour {
     // 적 웨이브 텍스트 갱신
     public void UpdateWaveText(int waves, int count) {
         waveText.text = "Wave : " + waves + "\nEnemy Left : " + count;
+    }
+
+    // 상호작용 안내 문구 표시
+    public void ShowInteractPrompt(string text) {
+        if (interactPrompt == null) return;
+        interactPromptText.text = text;
+        interactPrompt.SetActive(true);
+    }
+
+    // 상호작용 안내 문구 숨김
+    public void HideInteractPrompt() {
+        if (interactPrompt == null) return;
+        interactPrompt.SetActive(false);
     }
 
     // 게임 오버 UI 활성화

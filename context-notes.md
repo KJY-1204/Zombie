@@ -400,6 +400,45 @@ Append-only. Verified project facts and decisions only.
 - Play Mode에서 헛간 중심·나무 트렁크 둘 다 NavMesh 밖(좀비 차단 확인), 플레이어가 헛간 옆에 서도 정상. 콘솔 에러 0건.
 - 45도/탑뷰 스크린샷 비교: 이전 프리미티브 버전 대비 실루엣이 뚜렷하게 개선됨(진짜 박공지붕, 원뿔 사일로 지붕, 불규칙한 나무 수관, 어색했던 철제 울타리 대신 목재 울타리).
 
+## 2026-09-05 — 대규모 맵 재설계 착수: 씬 전환 시스템 + 도시 구역 1차
+
+### 사용자 요청 (범위가 크게 바뀜)
+- "블랜더로 로우폴리 아포칼립스 좀비 맵을 만들어주는데 시골/도시/광산/방공호가 있는 넓은 맵" + "탑다운 슈터 게임 형식 맵이여야 돼".
+- 확인 질문 결과: **한 구역씩 순차적으로** 진행, 순서는 **도시 → 광산 → 방공호 → 시골**. 기존에 있던 맵(묘지+농장)은 전부 삭제.
+- 핵심 요구사항: 건물/터널/벙커 입구에서 **상호작용(E)해야만** 각각 구현된 내부 맵으로 이동(Project Zomboid 스타일). 평소에는 내부에 못 들어가도록 배치. 건물 내부는 "최대한 단순화 + 로우폴리".
+
+### 아키텍처 결정: Additive 씬 로드 + "포켓" 좌표 오프셋
+- CLAUDE.md 13.1은 "단일 씬 유지, 필요 입증 전엔 addtive 스트리밍 도입 금지"를 권장하지만, 이건 "하나의 연속된 오픈월드를 청크로 나누는" 상황이 아니라 **서로 이어지지 않는 독립 공간(건물 내부)을 입구로만 접근**하는 요구라 다른 문제로 판단 — 여러 대안을 검토함.
+  1. **DontDestroyOnLoad + Non-additive 씬 교체**: "나가기"가 곧 Main.unity를 디스크에서 다시 로드하는 것과 같아서, 건물에 들어갔다 나올 때마다 도시의 좀비/웨이브/점수/떨어진 아이템이 전부 초기화됨 — 채택 안 함.
+  2. **Additive 씬 로드 (채택)**: Main 씬은 절대 언로드하지 않고, 건물 진입 시 내부 씬을 **추가로** 로드해 플레이어만 그 안으로 텔레포트, 퇴장 시 내부 씬을 언로드하고 원래 문 앞으로 복귀. Main의 상태(좀비/웨이브 등)가 전혀 끊기지 않음. 플레이어/카메라/UI/GameManager를 손댈 필요가 전혀 없음(전부 Main에 그대로 살아있음) — 기존 `UIManager`/`GameManager`가 이미 "씬 안에서 FindObjectOfType으로 찾는" 지연 싱글톤 패턴이라 DontDestroyOnLoad 없이도 자연스럽게 맞아떨어짐.
+- **좌표 "포켓" 배치**: 내부 씬들(House Interior 등)의 콘텐츠는 메인 월드(원점 부근)와 겹치지 않도록 (3000,0,3000)처럼 멀리 떨어진 좌표에 미리 배치해서 authoring. Additive 로드해도 도시 위에 겹쳐 보이지 않음. 앞으로 내부 씬 종류가 늘어나면 서로 겹치지 않게 충분히 떨어뜨려(예: 상점 내부는 4000대, 터널 내부는 5000대 등) 배치할 것.
+
+### 새 스크립트 (`Assets/Scripts/`)
+- `SceneTransitionManager.cs`: `EnterInterior(sceneName, returnPos, returnRot)`/`ExitInterior()`. `SceneManager.LoadSceneAsync(..., Additive)`로 로드 후 `"Interior Spawn Point"`라는 이름의 오브젝트를 찾아 그 위치로 텔레포트. 텔레포트 시 `CinemachineVirtualCamera.OnTargetObjectWarped()`를 호출해 카메라가 부드럽게 따라오지 않고 즉시 스냅하도록 처리(안 하면 순간이동인데 카메라만 스르륵 따라와서 어색함).
+- `BuildingEntrance.cs` / `InteriorExit.cs`: 트리거 콜라이더 + `PlayerInput.interact`(E키, 이번에 추가) 감지 + `UIManager` 안내 문구.
+- `UIManager.cs`: `interactPrompt`/`interactPromptText` + Show/Hide 메서드 추가. HUD Canvas에 "Interact Prompt" Text 오브젝트를 코드로 만들어 필드에 연결.
+
+### [함정] 씬 전환 도중 안내 문구가 고정되어 안 사라짐
+- `BuildingEntrance`/`InteriorExit`가 보여준 프롬프트는 그 오브젝트가 `OnTriggerExit`을 통해 꺼야 하는데, 씬 전환으로 그 오브젝트 자체가 파괴되면 `OnTriggerExit`이 안 불려서 문구가 화면에 그대로 남음(실제로 재현: 나갔다 온 직후 스크린샷에 "E: 나가기"가 계속 떠있었음). 해결: `SceneTransitionManager.EnterInterior`/`ExitInterior` 시작 시점에 무조건 `UIManager.HideInteractPrompt()`를 먼저 호출.
+
+### [함정 재확인] `manage_scene load`는 저장 안 한 현재 씬 편집을 날려버림
+- Interact Prompt UI를 Main 씬에 만든 직후 저장하지 않고 바로 `manage_scene create`(House Interior 새로 만들기 — 활성 씬이 바뀜)를 실행했다가, 나중에 `manage_scene load Main`으로 돌아오니 그 UI가 통째로 사라져 있었음(디스크에 저장된 옛 버전으로 로드됨). Play Mode 테스트에서 `interactPrompt` 필드가 null로 나와서 발견. **에디터에서 씬 콘텐츠를 만들 때마다, 다른 씬을 create/load하기 직전에 반드시 `manage_scene save`부터 할 것** — 이번 세션에서 두 번째로 겪은 "씬/에셋 전환 전 저장 필수" 패턴(첫 번째는 NavMesh 에셋 재저장 함정).
+
+### 도시 구역 콘텐츠
+- 기존 그래픽 전부 삭제(Props 24개/Laterns/Rural Decor 22개/Effects(화재 위험 포함)/철제 Fence+Fence Collider) — Ground/Directional Light/Tiles(빈 컨테이너)만 남기고 재활용.
+- Ground 70x70으로 확대 + 아스팔트색 재질. 기존 철제 울타리가 사라지면서 없어진 물리적 경계는 `City Boundary`(렌더러 꺼진 박스 콜라이더 4면 + NavMeshModifier)로 대체.
+- Blender로 `CityBuilding.fbx`(1x1x1 단위 큐브: 몸체+처마 지붕+문 마커, 인스턴스마다 자유롭게 스케일)와 `Rubble.fbx`(잔해 더미) 제작 — 헤드리스 파이프라인은 지난번 농장 소품 제작 때와 동일(`build_city_props.py`, 같은 방식으로 재사용 가능).
+- 메인 도로 하나(동서 방향) 양옆에 건물 10동(색상 4종 랜덤: 벽돌/콘크리트/베이지/블루그레이) 배치, 잔해 5곳. 건물 1동(`Building North Entrance`, 문만 노란색)에 House Interior로 연결되는 입구 배치.
+- 건물마다 `BoxCollider`+`NavMeshModifier`(Not Walkable) 수동 추가(FBX 임포트 메쉬는 프리미티브와 달리 자동으로 안 붙음 — 농장 소품 때와 동일한 패턴).
+
+### 검증
+- Play Mode에서 `SceneTransitionManager`의 Enter/Exit를 직접 호출해 왕복 검증: 진입 시 (3000,0,2997.2)로 정확히 텔레포트(Interior Spawn Point와 일치), 퇴장 시 (0,0.05,9.3)으로 정확히 복귀(Return Point와 일치). `SceneManager.sceneCount`로 내부 씬이 로드 시 2, 언로드 후 1로 정확히 바뀜을 확인. 총 발사/좀비 스폰/NavMesh 차단 전부 회귀 없음. 콘솔 에러 0건.
+
+### 남은 일 (다음 세션 참고)
+- 이번엔 씬 전환 시스템 검증 + 작은 시가지(건물 10동, 진입 가능 1동)까지만 완료. 다음 순서: 도시 구역을 더 확장(교차로/더 많은 건물/내부 템플릿 다양화) → 광산 → 방공호 → 시골 재구축.
+- 기존 그래이브야드/농장 관련 에셋(`Assets/Models/Level Art/*`, `Assets/Models/Rural/*`)과 재질들은 삭제하지 않고 프로젝트에 남겨둠 — 나중에 "시골" 구역을 재구축할 때 재사용 가능(이번에 씬에서 오브젝트만 제거했을 뿐, 에셋 파일 자체는 그대로 있음).
+- Zombie Spawner의 기존 스폰 포인트 4개(±24~29 부근)는 그대로 두었음 — 새 70x70 도시 레이아웃에서도 대체로 도로/빈 공간에 위치해 건물과 안 겹치지만, 정밀하게 재배치하지는 않음(다음 확장 때 함께 정리 예정).
+
 ## 2026-09-05 — 세션 종료 (다른 컴퓨터에서 이어서 작업 예정)
 
 - 이 시점까지 커밋 `bb7a9d1`까지 전부 GitHub `origin/main`에 push 완료. 로컬에 미커밋/미푸시 변경 없음(`git status --short` 깨끗함).
