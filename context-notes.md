@@ -66,3 +66,14 @@ Append-only. Verified project facts and decisions only.
 - **결론/규칙**: 바닥에 눕혀서 위에서 보이게 할 평면(Quad 등)을 만들 때는 `transform.forward`가 "카메라를 향하는 방향"이라고 가정하지 말 것 — 반드시 실제 렌더 결과(스크린샷 또는 `Camera.Render()` + `ReadPixels` 픽셀 검사)로 가시성을 확인한 뒤 회전값을 확정해야 함. 최종적으로 `Minimap Marker`의 올바른 로컬 회전은 `(90, 0, 0)`.
 - 이 버그는 Slice 1 완료 보고 당시에는 발견하지 못했음(그때는 마커가 회색 기본 머티리얼이라 앞서 존재하던 분홍 링/화재 이펙트 등과 시각적으로 구분이 안 돼서 "안 보이는 것"을 "잘 안 보이는 것"으로 착각함). 이후 눈에 띄는 노란색으로 바꾸고 나서야 완전히 안 보인다는 게 명확해져 발견함.
 - 마커용 신규 머티리얼: `Assets/Materials/MinimapPlayerMarker.mat` (URP Unlit, `_BaseColor` = 노란색 (1, 0.95, 0.1, 1) — 조명 영향을 안 받아 항상 밝게 보임). 마커 스케일은 0.5 → 0.9로 확대.
+
+## 2026-09-05 — 컨트롤 방식 변경: 마우스 조준 + WASD 이동 (사용자 요청, 미니맵과 무관)
+
+### 변경 전 방식 (탱크 컨트롤)
+- `PlayerInput.rotate`(Horizontal=A/D)로 캐릭터 전체를 좌우 회전, `move`(Vertical=W/S)로 그 방향 기준 전후 이동. 마우스 입력 없음.
+
+### 변경 후 방식
+- `PlayerInput.cs`: `rotate`/`rotateAxisName` 제거 → `strafe`/`strafeAxisName`(Horizontal=A/D)로 대체. 마우스 조준을 위해 `mouseWorldPosition`(카메라→마우스 스크린좌표 레이캐스트로 계산한 바닥 위 월드 좌표) 프로퍼티 추가. 바닥에 아무것도 안 맞으면 플레이어 높이의 무한 평면과의 교차점으로 폴백.
+- `PlayerMovement.cs`: `Rotate()`(입력 기반 몸 회전) 삭제 → `RotateTowardsMouse()`(마우스 조준 지점을 향해 `rotateSpeed`(기존 필드 재사용, 180deg/s) 한도로 회전) 신설. `Move()`는 `transform.forward` 기준 전후 이동 대신, **카메라의 수평 방향(forward/right, Y성분 제거 후 정규화) 기준**으로 `move`(전후)+`strafe`(좌우) 합산 이동으로 변경(대각선 이동 시 정규화로 속도 보정).
+- Follow Cam(Cinemachine)의 Transposer가 `WorldSpace` 바인딩 모드(`m_FollowOffset=(-8,16,-8)`)라 카메라가 플레이어 회전과 무관하게 항상 고정된 세계 각도(고정 아이소메트릭, yaw 45°)를 유지함 → 카메라 기준 WASD가 조준 방향과 무관하게 항상 일관된 화면 방향으로 동작함(회전해도 이동 체감이 안 바뀜). 이 전제가 깨지면(예: 카메라가 플레이어를 따라 회전하도록 바뀌면) Move()의 카메라 기준 계산도 다시 검토해야 함.
+- 헤드리스 세션이라 실시간 Play Mode 프레임 진행이 안 되는 한계는 여전함 → `RotateTowardsMouse()`/`Move()` private 메서드를 리플렉션으로 직접 반복 호출해 회전이 목표각(예: +X 방향 조준 시 90°)으로 정확히 수렴하는지, 이동 델타 방향이 카메라 forward와 정확히 일치하는지 코드 레벨로 검증함(실제 마우스 입력 자체는 이 환경에서 시뮬레이션 불가 — 사용자가 에디터에서 직접 플레이하며 손맛 확인 필요).
