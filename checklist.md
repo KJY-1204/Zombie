@@ -18,9 +18,10 @@
       Verify: Play Mode 게임 화면 우측 상단에 원형 미니맵이 정상 렌더링됨(스크린샷 확인).
 
 ## CP4. 플레이어 마커
-- [x] `Player Character.prefab`에 `Minimap Marker` 자식 추가 (Quad, MeshCollider 제거, layer MinimapPlayer, 기본 URP Lit 머티리얼, 회전 -90도로 카메라를 향하도록 수정).
+- [x] `Player Character.prefab`에 `Minimap Marker` 자식 추가 (Quad, MeshCollider 제거, layer MinimapPlayer, 노란색 URP Unlit 머티리얼 `MinimapPlayerMarker.mat`, scale 0.9).
 - [x] 메인 카메라 컬링 마스크에서 `MinimapPlayer` 레이어 제외 (cullingMask: -1 → -2049).
-      Verify: 마커를 강제로 비활성화해도 메인 게임 화면에 아무 변화 없음 확인(= 애초에 메인 카메라에 마커가 렌더링되지 않았음). 미니맵 카메라 단독 캡처에서는 컬링 마스크에 포함됨.
+      Verify: `Camera.Render()` 강제 호출 + `ReadPixels`로 마커 위치 픽셀을 직접 샘플링해 노란색이 실제로 렌더링됨을 픽셀 단위로 확인(스크린샷 육안 확인의 한계를 보완). 마커를 강제로 비활성화해도 메인 게임 화면에 변화 없음 확인(메인 카메라엔 애초에 안 그려짐).
+      **[수정된 버그]** 최초 구현 시 회전을 `(-90,0,0)`으로 넣어 Quad 뒷면이 미니맵 카메라를 향해 실제로는 전혀 렌더링되지 않고 있었음(회색 기본 머티리얼이라 눈치채지 못함). 노란색으로 바꾼 뒤 픽셀 검사로 발견, 올바른 회전 `(90,0,0)`으로 수정 완료 — 자세한 진단 과정은 context-notes.md 참조.
 
 ## CP5. 통합 검증
 - [x] Unity 컴파일 에러 0건.

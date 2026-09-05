@@ -53,3 +53,16 @@ Append-only. Verified project facts and decisions only.
 - 씬에 `Minimap Camera` GameObject 추가.
 - `Player Character.prefab`에 `Minimap Marker`(Quad) 자식 추가.
 - `HUD Canvas.prefab`에 `Minimap`(Mask+RawImage) 계층 추가.
+
+## 2026-09-05 — 미니맵 확대 + 플레이어 마커 버그 수정
+
+### 미니맵 확대율 조정
+- 사용자 요청으로 `Minimap Camera`의 `orthographicSize`를 20 → 10으로 축소(2배 확대). 미니맵 UI 크기(160x160)는 변경하지 않음.
+
+### [중요 버그] Minimap Marker가 Slice 1 내내 실제로는 안 보이고 있었음
+- 증상: 플레이어 마커에 밝은 노란색 Unlit 머티리리얼(`Assets/Materials/MinimapPlayerMarker.mat`)을 새로 만들어 입혔는데도 미니맵에 전혀 안 보임.
+- 진단: `Camera.Render()`를 코드로 강제 호출한 뒤 `cam.WorldToViewportPoint()`로 마커의 화면 좌표를 계산하고, `RenderTexture`에서 그 픽셀 색상을 직접 읽어(`ReadPixels`) 확인 — 배경색만 나오고 마커 색이 전혀 없었음.
+- 원인: Quad를 바닥과 수평으로 눕히면서 회전을 `(rotation X = -90 / 270)`로 넣었는데, 이 경우 `transform.forward`는 `(0,1,0)`(위쪽, 카메라 방향)이 되지만 **Quad 메쉬의 실제 가시면(비컬링되는 면)은 그 반대 방향**이라 위에서 보는 미니맵 카메라 기준으로는 백페이스 컬링되어 안 보였음. `rotation X = 90`으로 넣으면 `transform.forward = (0,-1,0)`(아래쪽)이 되는데, 오히려 이 경우가 실제로 위(미니맵 카메라)에서 보이는 면이 됨.
+- **결론/규칙**: 바닥에 눕혀서 위에서 보이게 할 평면(Quad 등)을 만들 때는 `transform.forward`가 "카메라를 향하는 방향"이라고 가정하지 말 것 — 반드시 실제 렌더 결과(스크린샷 또는 `Camera.Render()` + `ReadPixels` 픽셀 검사)로 가시성을 확인한 뒤 회전값을 확정해야 함. 최종적으로 `Minimap Marker`의 올바른 로컬 회전은 `(90, 0, 0)`.
+- 이 버그는 Slice 1 완료 보고 당시에는 발견하지 못했음(그때는 마커가 회색 기본 머티리얼이라 앞서 존재하던 분홍 링/화재 이펙트 등과 시각적으로 구분이 안 돼서 "안 보이는 것"을 "잘 안 보이는 것"으로 착각함). 이후 눈에 띄는 노란색으로 바꾸고 나서야 완전히 안 보인다는 게 명확해져 발견함.
+- 마커용 신규 머티리얼: `Assets/Materials/MinimapPlayerMarker.mat` (URP Unlit, `_BaseColor` = 노란색 (1, 0.95, 0.1, 1) — 조명 영향을 안 받아 항상 밝게 보임). 마커 스케일은 0.5 → 0.9로 확대.
