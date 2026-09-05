@@ -26,3 +26,25 @@
 ## CP5. 씬 저장 및 회귀 확인
 - [x] `manage_scene save`로 `Main.unity` 저장(2회 — NavMesh 에셋 재연결 전/후).
 - [x] `git status`로 변경 파일이 `Main.unity`, `Main/NavMesh-Navigation.asset`으로만 국한됨을 확인(Packages/ProjectSettings는 기존부터 있던 무관한 변경).
+
+# Checklist — 맵 확장 2차: 시골(농장) 테마 장식 추가
+
+## CP6. 조사
+- [x] `Assets/Models/Level Art`에 있는 기존 모델은 전부 묘지 테마(묘비/십자가/석관/철제 울타리 등)뿐, 농장/시골 전용 에셋은 없음을 확인. `generate_model`(Tripo/Meshy) API 키 미설정 확인(`list_providers`) — AI 3D 생성 불가.
+- [x] 결정: 새 3D 에셋 임포트 없이 기존 Unity 프리미티브(Cube/Cylinder/Sphere) + 기존 묘지 울타리 FBX(`fenceBroken.fbx`, 목재/철제 느낌 재활용) 조합으로 저폴리 스타일에 맞는 농장 소품을 직접 구성.
+
+## CP7. 농장 클러스터 제작 (`Level Art/Rural Decor`)
+- [x] 헛간(Barn): Cube 몸체(6x4x8, 빨강) + Cube를 45도 회전시켜 만든 박공지붕(회색) — 스크린샷으로 실루엣 확인.
+- [x] 사일로(Silo): Cylinder 몸체 + 납작한 Cylinder 지붕(회색), 헛간 옆에 배치.
+- [x] 목장 울타리: 기존 `fenceBroken.fbx` 7개를 헛간 앞에 일렬 배치.
+- [x] 건초더미(Hay Bale) 3개: Cylinder, 황토색, 헛간 옆에 삼각 더미로 쌓음.
+- [x] 나무(Tree) 11그루: Cylinder(줄기, 갈색) + Sphere(수관, 초록) 조합을 확장된 외곽 영역 전체에 위치/크기/회전을 무작위로 살짝 변주해 분산 배치(기존 묘지 핵심부 반경 안쪽은 피함).
+- [x] 새 재질 5종 생성(`Assets/Models/Materials/`): Barn Red, Roof Gray, Silo Metal, Foliage Green, Hay Tan, Bark Brown.
+      Verify: 45도/탑뷰 스크린샷으로 전체 배치가 자연스러운 농장+수목 실루엣을 이루는지 육안 확인.
+
+## CP8. 충돌/NavMesh 반영
+- [x] 헛간/사일로는 프리미티브 생성 시 자동으로 붙는 콜라이더(BoxCollider/CapsuleCollider)로 플레이어 물리 차단 확보.
+- [x] 헛간·사일로 몸체에 `NavMeshModifier`(area=Not Walkable) 추가 — 좀비가 벽을 뚫고 다니지 않도록 함(나무/건초더미는 크기가 작아 이번 범위에서는 생략, 필요시 추후 추가).
+- [x] `NavMeshSurface.BuildNavMesh()` 재실행 + 이전에 발견한 함정(에셋 재저장 필요)대로 `Assets/Scenes/Main/NavMesh-Navigation.asset`에 다시 저장·재연결.
+      Verify: `NavMesh.SamplePosition`으로 헛간 중심(18,0,18)이 반경 0.5 안에서 NavMesh 위에 없음을 확인(좀비가 헛간을 통과하지 못함). Play Mode에서 플레이어를 헛간 옆(14.5,0,18)으로 이동해도 정상 서 있음, 콘솔 에러 0건.
+- [x] `manage_scene save`, `git status`로 변경 파일이 `Main.unity`/`NavMesh-Navigation.asset`/신규 재질 5종으로만 국한됨을 확인.
