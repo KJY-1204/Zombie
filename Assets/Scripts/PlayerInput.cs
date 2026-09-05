@@ -16,6 +16,7 @@ public class PlayerInput : MonoBehaviour {
     public bool reload { get; private set; } // 감지된 재장전 입력값
     public bool useSlot1 { get; private set; } // 인벤토리 1번 슬롯 사용 입력값
     public bool useSlot2 { get; private set; } // 인벤토리 2번 슬롯 사용 입력값
+    public bool toggleStatus { get; private set; } // 상태 창을 여닫는 입력값
     public Vector3 mouseWorldPosition { get; private set; } // 마우스 커서가 가리키는 바닥 위 월드 좌표
 
     // 매프레임 사용자 입력을 감지
@@ -30,6 +31,7 @@ public class PlayerInput : MonoBehaviour {
             reload = false;
             useSlot1 = false;
             useSlot2 = false;
+            toggleStatus = false;
             return;
         }
 
@@ -43,6 +45,8 @@ public class PlayerInput : MonoBehaviour {
         // 인벤토리 슬롯 사용 입력 감지 (숫자키 1, 2)
         useSlot1 = Input.GetKeyDown(KeyCode.Alpha1);
         useSlot2 = Input.GetKeyDown(KeyCode.Alpha2);
+        // 상태 창 토글 입력 감지 (I 키)
+        toggleStatus = Input.GetKeyDown(KeyCode.I);
 
         // 마우스 조준 위치 갱신
         UpdateMouseWorldPosition();

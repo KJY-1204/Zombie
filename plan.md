@@ -1,6 +1,21 @@
 # Plan
 
-## 현재 마일스톤: Slice 3 — 인벤토리 foundation (체력팩 + 레이더)
+## 현재 마일스톤: Slice 4 — 플레이어 상태 창 (Project Zomboid 스타일)
+
+### 왜
+Phase A 인스펙션 중 발견: 체력 UI(발밑 방사형 링)가 이미 존재해 CLAUDE.md의 "기존 체력을 authoritative source에서 보여주기" 요구는 원래 충족돼 있었다. 사용자가 이를 확인한 뒤, 발밑 링 대신 Project Zomboid처럼 `I` 키로 여닫는 상태 창으로 바꿔달라고 요청해 방향이 바뀜.
+
+### 의존성
+- `LivingEntity`가 이미 `health`/`startingHealth`를 public으로 노출 — 새 UI가 직접 읽으면 됨(중복 저장 없음, CLAUDE.md 13.4 "stable gameplay-facing API" 요구 충족).
+- `PlayerInput.cs`의 원시 입력 중앙집중 컨벤션에 `toggleStatus` 추가.
+- `UIManager.cs`의 "게임플레이 상태 변경 시 UI 갱신" 컨벤션을 그대로 따르되, 이번엔 폴링 방식(창이 열려있는 동안만 매프레임 텍스트 갱신 — 항상 갱신 아님).
+
+### 완료 기준 (Acceptance)
+- 발밑 링 완전히 제거, `PlayerHealth`가 UI를 전혀 모름(관심사 분리).
+- `I` 키로 상태 창이 토글되고, 열려있을 때 현재 체력이 정확히 표시됨.
+- 좀비/사격/인벤토리 등 기존 기능 회귀 없음.
+
+## 완료: Slice 3 — 인벤토리 foundation (체력팩 + 레이더)
 
 ### 왜
 Slice 1(미니맵)·Slice 2(레이더)가 검증 완료됐다. 지금 레이더는 "임시 테스트 인벤토리"(줍자마자 즉시 발동)로만 동작 중이라, 진짜 인벤토리(줍고 → 모았다가 → 원할 때 사용)로 승격시킨다. 사용자 확인: 체력팩+레이더만 인벤토리화, 탄약/코인은 즉시 적용 유지, 숫자키(1/2)로 즉시 사용.
@@ -26,4 +41,4 @@ CLAUDE.md 16장 Slice 3, 21장 Inventory Acceptance Tests와 동일.
 검증 완료(checklist.md 참조). Enemy/MinimapPlayer 레이어, 전용 미니맵 카메라+RenderTexture, 원형 마스크 UI, 방위 라벨(N/S/E/W), 플레이어 마커까지 구현. 이후 사용자 요청으로 마우스 조준+WASD 이동 컨트롤 변경, 스트레이프 애니메이션 개선도 별도로 진행됨(미니맵과 무관, context-notes.md 참조).
 
 ## 다음 마일스톤 (순서대로)
-Slice 4 플레이어 상태 UI → Slice 5 차량 → Slice 6 월드 확장.
+Slice 5 차량 → Slice 6 월드 확장.

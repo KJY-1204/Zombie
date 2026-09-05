@@ -27,6 +27,40 @@ public class UIManager : MonoBehaviour {
     public Text[] inventorySlotCounts; // 인벤토리 슬롯별 수량 텍스트
     public GameObject gameoverUI; // 게임 오버시 활성화할 UI
 
+    public GameObject statusWindow; // I 키로 여닫는 상태 창
+    public Text statusHealthText; // 상태 창의 체력 표시 텍스트
+
+    private PlayerInput playerInput; // 상태 창 토글 입력을 읽어올 컴포넌트
+    private LivingEntity playerLivingEntity; // 체력을 조회할 대상
+
+    private void Awake() {
+        // 플레이어의 입력/체력 컴포넌트를 찾아 캐싱
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            playerInput = player.GetComponent<PlayerInput>();
+            playerLivingEntity = player.GetComponent<LivingEntity>();
+        }
+
+        // 상태 창은 기본적으로 닫혀있음
+        statusWindow.SetActive(false);
+    }
+
+    private void Update() {
+        // I 키 입력 시 상태 창 열기/닫기 토글
+        if (playerInput != null && playerInput.toggleStatus)
+        {
+            statusWindow.SetActive(!statusWindow.activeSelf);
+        }
+
+        // 상태 창이 열려있는 동안에만 내용을 갱신
+        if (statusWindow.activeSelf && playerLivingEntity != null)
+        {
+            statusHealthText.text = "체력  " + Mathf.CeilToInt(playerLivingEntity.health)
+                + " / " + Mathf.CeilToInt(playerLivingEntity.startingHealth);
+        }
+    }
+
     // 탄약 텍스트 갱신
     public void UpdateAmmoText(int magAmmo, int remainAmmo) {
         ammoText.text = magAmmo + "/" + remainAmmo;

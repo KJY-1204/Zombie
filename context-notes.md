@@ -167,3 +167,21 @@ Append-only. Verified project facts and decisions only.
 ### 사망한 좀비의 미니맵 마커 숨김
 - `Zombie.cs`의 `Awake()`에서 `transform.Find("Minimap Marker")` 결과를 `minimapMarker` 필드로 캐싱(죽을 때 딱 한 번만 쓰지만 매번 Find하는 것보다 캐싱이 낫다는 기존 컨벤션 유지).
 - `Die()`에서 콜라이더 비활성화하는 부분과 같은 위치에 `minimapMarker.SetActive(false)` 추가. 좀비 오브젝트 자체는 `ZombieSpawner.cs`가 사망 10초 뒤에 파괴하지만(`Destroy(zombie.gameObject, 10f)`), 그 10초 동안 시체가 남아있어도 마커는 죽는 즉시 사라짐.
+
+## 2026-09-05 — Slice 4: 발밑 체력 링 → `I` 키 상태 창 (Project Zomboid 스타일)
+
+### [중요 발견] 체력 UI는 이미 있었다
+- Phase A 인스펙션 중 `PlayerHealth.healthSlider`가 실제로 씬의 "Health Slider" 오브젝트에 연결되어 있음을 발견. 위치는 `Player Character/Canvas`(월드스페이스 Canvas, 로컬 포지션 (0, 0.3, 0) — 플레이어 발밑), `Health Circle` 스프라이트를 `Image.Type.Filled`+`Radial360`으로 사용.
+- **이게 바로 Slice 1 때 "미니맵과 무관한 기존 장식품"이라고 오인해서 범위 밖으로 넘겼던 그 분홍/빨간 링이었음.** 당시엔 원인을 깊게 파지 않고 넘어갔는데, 이번에 알고 보니 실제 체력 게이지였다. **교훈**: "이건 기존부터 있던 것 같다"고 넘길 때, 정말 아무 기능이 없는 장식인지 한 번은 실제로 확인해볼 것 — 겉보기엔 이상해 보여도 실은 의도된 UI일 수 있다.
+
+### 사용자 결정
+- 발밑 링을 없애고 Project Zomboid처럼 `I` 키를 눌렀을 때 뜨는 상태 창으로 교체. CLAUDE.md 13.4(Hunger/Stamina 등은 요청 전까지 보류) 원칙에 따라 창 내용은 **체력만** 표시(허기/스태미나 등 새 스탯 추가 안 함 — 아직 그걸 소모하는 메커니즘이 전혀 없으므로 섣부르게 만들지 않음).
+
+### 관심사 분리로 재설계
+- `PlayerHealth.cs`에서 `healthSlider` 필드/로직을 완전히 제거 — `RestoreHealth` 오버라이드까지 통째로 삭제(오버라이드가 UI 갱신 말고 하던 일이 없었으므로, `LivingEntity.RestoreHealth`를 그대로 씀). 이제 `PlayerHealth`는 UI 존재를 전혀 모름.
+- 새 `UIManager.statusWindow`/`statusHealthText`가 `LivingEntity.health`/`startingHealth`를 **직접 읽어서** 표시 — 게임플레이 쪽이 UI에 값을 밀어넣는(push) 기존 패턴(Ammo/Score/Wave/Inventory)과 달리, 이건 **UI가 필요할 때 당겨오는(pull)** 방식. 상태 창처럼 "가끔 열어보는" UI엔 pull이 더 자연스럽고(항상 최신값 보장, 이벤트 훅 불필요), 항상 떠있는 HUD엔 기존처럼 push가 맞음 — 상황에 따라 패턴을 다르게 가져간 것.
+- `UIManager`에 처음으로 `Awake()`/`Update()`가 생김(기존엔 순수 setter 메서드 모음이었음). `Awake()`에서 플레이어의 `PlayerInput`/`LivingEntity`를 캐싱(씬에 플레이어가 하나뿐인 싱글플레이 전제, `GameObject.FindGameObjectWithTag("Player")` 1회만 호출).
+
+### 검증 관련: 헤드리스 세션에서 새로 발견한 렌더링 글리치
+- `Canvas.ForceUpdateCanvases()` 직후 스크린샷을 찍었더니, 이번엔 내가 건드리지도 않은 기존 Wave/Ammo 텍스트까지 전부 깨진 문자로 나오는 렌더링 글리치가 발생(내용은 맞는데 폰트 아틀라스가 깨진 것처럼 보임). 다시 찍으니 이번엔 텍스트는 멀쩡한데 상태 창 자체가 화면에 아예 안 보임(코드로는 `activeSelf=true` 확인됨). **결론**: 이 세션의 스크린샷 캡처는 상태 창처럼 방금 막 SetActive(true)한 UI에 대해 신뢰할 수 없다 — 이번엔 `ui.statusWindow.activeSelf`/`ui.statusHealthText.text`를 리플렉션으로 직접 읽어 토글(열림→닫힘)과 체력 값 반영(100→65)을 확정 검증했고, 그걸로 충분하다고 판단함. 다음에도 이런 "방금 연 패널" 검증은 스크린샷보다 컴포넌트 값 직접 조회를 우선할 것.
+- 검증 중 실제로 플레이어가 사망(`YOU DIE`)하는 것을 목격했는데, 콘솔에 에러가 전혀 없어서 게임오버 흐름 자체는 정상 동작임을 확인함(내가 준 데미지 외에 좀비 공격이 실제로 몇 번 들어갔을 가능성 있음 — 헤드리스 환경에서도 물리/트리거는 완전히 멈춰있지 않을 수 있다는 뜻이지만, 이번 작업 검증엔 영향 없음).
