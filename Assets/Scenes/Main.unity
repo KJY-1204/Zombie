@@ -374,7 +374,7 @@ Camera:
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 2049
+    m_Bits: 1
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 8400000, guid: 6e82a1e22fd2cfc4d88758509e38e594, type: 2}
   m_TargetDisplay: 0
@@ -657,7 +657,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MinimapRadarController
   revealDuration: 10
-  fullMapCamera: {fileID: 942374070}
 --- !u!1 &1370410589
 GameObject:
   m_ObjectHideFlags: 0

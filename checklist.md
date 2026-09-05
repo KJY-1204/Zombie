@@ -52,3 +52,8 @@
 - `HUD Canvas.prefab`을 프리팹 스테이지에서 편집하며 `uiManager.mapCamera = GameObject.Find("Full Map Camera")...`처럼 **씬에만 존재하는 오브젝트**를 프리팹 에셋의 필드에 대입하면, 저장 시 조용히 null로 초기화됨(프리팹은 여러 씬에서 재사용 가능해야 하므로 특정 씬 오브젝트를 직접 참조할 수 없음 — Unity의 정상 동작).
 - **해결**: 프리팹 스테이지가 아니라 **씬에 배치된 인스턴스**에 직접 대입해야 하며, 대입 후 `EditorUtility.SetDirty` + 씬 저장만으로는 부족할 때가 있었음 — `SerializedObject`/`SerializedProperty.objectReferenceValue`로 명시적으로 설정하고 `ApplyModifiedProperties()`를 호출해야 프리팹 인스턴스 오버라이드로 확실히 기록됨.
 - **교훈**: 다음에 프리팹 안의 스크립트가 "특정 씬에만 있는 오브젝트"(예: 이번처럼 미니맵/지도 전용 카메라)를 참조해야 한다면, 반드시 프리팹 스테이지가 아니라 씬의 인스턴스에서, 가급적 `SerializedObject` API로 연결할 것.
+
+## CP3. "종이 지도" 컨셉 반영 (사용자 요청)
+- [x] `Full Map Camera`의 컬링 마스크를 `Default`(지형만) 하나로 축소 — `MinimapPlayer`/`MinimapZombie` 완전히 제외.
+- [x] `MinimapRadarController.cs`에서 `fullMapCamera` 필드와 관련 토글 로직 제거 — 전체 지도는 레이더와 무관하게 항상 마커 없음.
+      Verify: 레이더를 활성화한 상태에서도 전체 지도 카메라 컬링 마스크가 `1`(Default만)로 불변임을 코드로 확인, 카메라 직접 캡처로 플레이어/좀비 마커가 전혀 안 보이고 지형만 나타남을 확인.
