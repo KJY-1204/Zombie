@@ -59,3 +59,11 @@ crashlytics-build.properties
 
 # Rider
 .idea/
+
+# Claude Code local tooling (not part of the Unity project)
+.claude/
+
+# Debug/test screenshots captured via MCP tooling
+/Assets/Screenshots/
+/Assets/Screenshots.meta
+
