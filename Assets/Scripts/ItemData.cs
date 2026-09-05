@@ -3,6 +3,7 @@ using UnityEngine;
 
 public abstract class ItemData : ScriptableObject {
     public string displayName; // 인벤토리 UI에 표시될 이름
+    public Sprite icon; // 인벤토리 슬롯에 표시될 아이콘
 
     // 아이템을 사용했을 때의 효과. target은 효과가 적용될 대상(주로 플레이어)
     public abstract void Use(GameObject target);

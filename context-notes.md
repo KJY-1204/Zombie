@@ -150,3 +150,20 @@ Append-only. Verified project facts and decisions only.
 ### 알아두면 좋은 것 (다음 세션 참고)
 - `LivingEntity.RestoreHealth`는 상한 클램프가 없어서 체력이 시작 체력(100)을 넘어 120까지 올라가는 게 관찰됨 — 이번에 옮긴 로직 그대로라 **기존부터 있던 동작**(회귀 아님, 손 안 댐). 나중에 체력 상한 처리가 필요하면 `LivingEntity.cs`를 볼 것.
 - 인벤토리는 지금 "창" UI가 없고 상시 노출되는 한 줄 텍스트뿐 — Slice 4(플레이어 상태 UI)나 이후 요청 시 아이콘/슬롯 그래픽으로 발전시킬 수 있음.
+
+## 2026-09-05 — 사용자 피드백 3건: 좀비 마커 메인화면 노출 버그, 인벤토리 아이콘 UI, 사망 좀비 마커 숨김
+
+### [버그] Main Camera가 MinimapZombie 레이어를 컬링하지 않고 있었음
+- Slice 1에서 `MinimapPlayer`를 Main Camera 컬링 마스크에서 제외했지만, Slice 2에서 `MinimapZombie` 레이어를 새로 추가할 때 **Main Camera 쪽 제외 처리를 빠뜨림**(레이더 컨트롤러/미니맵 카메라 쪽만 신경 씀). 그 결과 좀비 미니맵 마커(빨간 사각형)가 실제 게임 화면에 계속 떠 있었음.
+- 수정: `mainCam.cullingMask &= ~(1 << LayerMask.NameToLayer("MinimapZombie"))` 적용(-2049 → -6145). **교훈**: 앞으로 미니맵 전용 레이어를 새로 추가할 때마다 Minimap Camera 쪽 포함 처리뿐 아니라 **Main Camera 쪽 제외 처리도 항상 세트로 확인**할 것. 헤드리스 세션에서 좀비 스폰 위치는 화면에 잘 안 잡혀서 육안 스크린샷으로는 놓치기 쉬움 — `cam.cullingMask` 값을 직접 비트 검사하는 방식으로 확인해야 확실함.
+
+### 인벤토리 아이콘 슬롯 UI
+- `ItemData`에 `public Sprite icon;` 추가. 전용 아트가 없어 코드로 절차적 생성: 체력팩=빨간 원 배경+흰색 십자가(64x64), 레이더=초록 동심원 3겹+중심점(64x64) — `Assets/Sprites/Health Item Icon.png`, `Radar Item Icon.png`(Minimap Mask Circle 만들 때와 동일한 Texture2D→PNG→Sprite 임포트 절차 재사용).
+- `UIManager`의 `UpdateInventoryText(string)`(한 줄 텍스트)을 `UpdateInventorySlot(index, icon, quantity)`로 교체 — `inventorySlotIcons: Image[]`, `inventorySlotCounts: Text[]` 배열 필드로 슬롯별 접근.
+- `Inventory.slots` 크기를 4→2로 축소(실제 아이템 2종만 있으므로 UI 슬롯 개수와 정확히 일치시킴 — 안 쓰는 빈 슬롯을 UI에 만들지 않기 위함).
+- HUD 좌하단에 `Inventory Slots` 컨테이너 → `Slot 0`/`Slot 1`(반투명 검은 Image 배경, 52x52) → 각각 자식 `Icon`(Image, 비어있으면 `enabled=false`)과 `Count`(Text, 우하단, 수량 0이면 빈 문자열).
+- **헤드리스 세션에서 스크린샷이 UI 변경사항을 즉시 반영 안 하는 문제 발견**: 컴포넌트 값은 코드로 확인하면 정상인데(`icon.sprite`, `count.text` 등) 그 직후 찍은 스크린샷엔 반영이 안 될 때가 있었음. `Canvas.ForceUpdateCanvases()`를 스크린샷 직전에 호출하면 그 순간엔 해결되지만, 그 뒤에 다른 액션(카메라 이동 등)을 몇 번 더 하고 나중에 다시 찍으면 또 스테일한 프레임이 나올 수 있음(프레임이 실제로 안 돌아가는 헤드리스 환경의 근본적 한계, 기존에 기록한 "Time.frameCount 고정" 이슈와 같은 원인). **결론**: UI 값 검증은 컴포넌트 프로퍼티를 코드로 직접 읽는 것이 스크린샷보다 신뢰도가 높음. 스크린샷은 `Canvas.ForceUpdateCanvases()` 직후 바로 찍을 때만 신뢰.
+
+### 사망한 좀비의 미니맵 마커 숨김
+- `Zombie.cs`의 `Awake()`에서 `transform.Find("Minimap Marker")` 결과를 `minimapMarker` 필드로 캐싱(죽을 때 딱 한 번만 쓰지만 매번 Find하는 것보다 캐싱이 낫다는 기존 컨벤션 유지).
+- `Die()`에서 콜라이더 비활성화하는 부분과 같은 위치에 `minimapMarker.SetActive(false)` 추가. 좀비 오브젝트 자체는 `ZombieSpawner.cs`가 사망 10초 뒤에 파괴하지만(`Destroy(zombie.gameObject, 10f)`), 그 10초 동안 시체가 남아있어도 마커는 죽는 즉시 사라짐.

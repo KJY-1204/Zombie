@@ -30,4 +30,13 @@
 - [x] 좀비 점블랭크 레이캐스트: `layer=10(Enemy)`, `IDamageable` 정상 — 회귀 없음.
 
 ## Slice 3 완료
-위 CP1~CP5 전부 검증 완료. 다음은 `plan.md`의 Slice 4(플레이어 상태 UI)로 진행.
+위 CP1~CP5 전부 검증 완료.
+
+## CP6. 사용자 피드백 3건 수정
+- [x] **[버그] 좀비 미니맵 마커가 메인 화면에 노출됨**: `Main Camera` 컬링 마스크가 `MinimapPlayer`만 제외하고 `MinimapZombie`(Slice 2에서 추가된 레이어)는 빠뜨렸던 것을 발견해 수정(-2049 → -6145). 실제 Main Camera를 좀비 근처로 옮겨 스크린샷 확인 — 더 이상 빨간 사각형이 안 보임.
+- [x] **인벤토리 슬롯을 아이콘 UI로 교체**: `ItemData`에 `icon`(Sprite) 필드 추가, 체력팩(빨간 원+흰 십자)/레이더(초록 동심원) 아이콘을 코드로 생성해 연결. `UIManager`의 텍스트 한 줄 방식을 `inventorySlotIcons[]`/`inventorySlotCounts[]` + `UpdateInventorySlot(index, icon, quantity)`로 교체. HUD 좌하단에 반투명 검은 배경의 네모 슬롯 2칸(Slot 0/Slot 1) 생성, 각각 아이콘+우하단 수량 텍스트. `Inventory.slots`도 4→2칸으로 정리(실제 사용하는 슬롯 수와 UI를 일치시킴).
+      Verify: `Add`/스크린샷으로 슬롯 안에 아이콘+숫자가 정상 표시됨을 픽셀로 확인.
+- [x] **레이더 활성 중 사망한 좀비가 미니맵에서 안 보이게**: `Zombie.cs`가 `Awake()`에서 `Minimap Marker` 자식을 캐싱해두고, `Die()`에서 `SetActive(false)`로 즉시 숨김(콜라이더 비활성화와 동일한 타이밍). 강제 사망 테스트로 마커가 `activeSelf: True→False`로 바뀜을 확인.
+      Verify: 좀비 강제 사망 후 마커 비활성화 확인, 살아있는 좀비 마커는 정상 동작 유지.
+
+## Slice 3 + 후속 수정 완료. 다음은 `plan.md`의 Slice 4(플레이어 상태 UI)로 진행.

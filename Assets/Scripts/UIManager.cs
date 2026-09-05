@@ -23,7 +23,8 @@ public class UIManager : MonoBehaviour {
     public Text ammoText; // 탄약 표시용 텍스트
     public Text scoreText; // 점수 표시용 텍스트
     public Text waveText; // 적 웨이브 표시용 텍스트
-    public Text inventoryText; // 인벤토리 슬롯 표시용 텍스트
+    public Image[] inventorySlotIcons; // 인벤토리 슬롯별 아이콘 이미지
+    public Text[] inventorySlotCounts; // 인벤토리 슬롯별 수량 텍스트
     public GameObject gameoverUI; // 게임 오버시 활성화할 UI
 
     // 탄약 텍스트 갱신
@@ -31,9 +32,13 @@ public class UIManager : MonoBehaviour {
         ammoText.text = magAmmo + "/" + remainAmmo;
     }
 
-    // 인벤토리 텍스트 갱신
-    public void UpdateInventoryText(string text) {
-        inventoryText.text = text;
+    // 인벤토리 슬롯 하나의 아이콘/수량 갱신. icon이 없으면 빈 슬롯으로 표시
+    public void UpdateInventorySlot(int index, Sprite icon, int quantity) {
+        if (index < 0 || index >= inventorySlotIcons.Length) return;
+
+        inventorySlotIcons[index].sprite = icon;
+        inventorySlotIcons[index].enabled = icon != null;
+        inventorySlotCounts[index].text = quantity > 0 ? quantity.ToString() : "";
     }
 
     // 점수 텍스트 갱신

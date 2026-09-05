@@ -16,6 +16,7 @@ public class Zombie : LivingEntity {
     private Animator zombieAnimator; // 애니메이터 컴포넌트
     private AudioSource zombieAudioPlayer; // 오디오 소스 컴포넌트
     private Renderer zombieRenderer; // 렌더러 컴포넌트
+    private GameObject minimapMarker; // 미니맵 전용 마커 (사망 시 숨김 처리)
 
     public float damage = 20f; // 공격력
     public float timeBetAttack = 0.5f; // 공격 간격
@@ -46,6 +47,13 @@ public class Zombie : LivingEntity {
         // 렌더러 컴포넌트는 자식 게임 오브젝트에게 있으므로
         // GetComponentInChildren() 메서드를 사용
         zombieRenderer = GetComponentInChildren<Renderer>();
+
+        // 미니맵 마커 자식 오브젝트 참조 캐싱 (사망 시 숨기기 위함)
+        Transform marker = transform.Find("Minimap Marker");
+        if (marker != null)
+        {
+            minimapMarker = marker.gameObject;
+        }
     }
 
     // 좀비 AI의 초기 스펙을 결정하는 셋업 메서드
@@ -151,6 +159,12 @@ public class Zombie : LivingEntity {
         // AI 추적을 중지하고 내비메쉬 컴포넌트를 비활성화
         navMeshAgent.isStopped = true;
         navMeshAgent.enabled = false;
+
+        // 사망한 좀비는 레이더가 활성화되어 있어도 미니맵에 나타나지 않도록 마커를 숨김
+        if (minimapMarker != null)
+        {
+            minimapMarker.SetActive(false);
+        }
 
         // 사망 애니메이션 재생
         zombieAnimator.SetTrigger("Die");

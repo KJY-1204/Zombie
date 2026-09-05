@@ -9,7 +9,7 @@ public class Inventory : MonoBehaviour {
         public int quantity; // 보유 수량
     }
 
-    public Slot[] slots = new Slot[4]; // 고정 크기 슬롯(지금은 체력팩/레이더 2종만 사용)
+    public Slot[] slots = new Slot[2]; // 고정 크기 슬롯(숫자키 1, 2에 대응)
 
     private PlayerInput playerInput; // 슬롯 사용 입력을 읽어올 컴포넌트
 
@@ -89,20 +89,14 @@ public class Inventory : MonoBehaviour {
         RefreshUI();
     }
 
-    // 인벤토리 상태를 UI 텍스트로 갱신
+    // 인벤토리 상태를 슬롯 UI(아이콘 + 수량)에 갱신
     private void RefreshUI() {
         if (UIManager.instance == null) return;
 
-        var sb = new System.Text.StringBuilder();
         for (int i = 0; i < slots.Length; i++)
         {
-            if (slots[i].data != null)
-            {
-                sb.Append(i + 1).Append(":").Append(slots[i].data.displayName)
-                    .Append(" x").Append(slots[i].quantity).Append("  ");
-            }
+            Sprite icon = slots[i].data != null ? slots[i].data.icon : null;
+            UIManager.instance.UpdateInventorySlot(i, icon, slots[i].quantity);
         }
-
-        UIManager.instance.UpdateInventoryText(sb.ToString());
     }
 }
