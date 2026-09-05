@@ -1,37 +1,28 @@
-# Checklist — 근접무기(삽) 파지 자세 수정 (사용자 버그 리포트: "삽을 반대로 들고있다")
+# Checklist — Slice 6: 맵 확장 (1차, 기존 묘지 마당을 비례 확대)
 
-## CP1. 원인 조사
-- [x] 스크린샷으로 실제 문제 재현: 삽의 D자 손잡이 끝(z=1.06)이 머리 위로 솟아오르고, 블레이드(z=-0.5, 넓은 부분)는 허리 옆에 축 처져 있음 — 완전히 거꾸로 든 모양.
-- [x] 원인 특정: 회전 피벗(Melee Weapon 오브젝트 원점)이 Left/Right Handle(z=0.35~0.90) 손잡이 위치에서 멀리 떨어져 있어, 회전 시 블레이드와 손잡이가 원점 기준 반대편에서 서로 어긋나게 움직임.
+## CP1. 기존 구조 조사
+- [x] `Ground`(Plane, 22x22, MeshCollider+NavMeshModifier), `Fence`(시각용 메쉬, 콜라이더 없음), `Fence Collider`(박스 콜라이더 12개, 실제 충돌 담당) 3개 오브젝트가 전부 같은 중심(-1.5, *, 2)을 공유하는 동심원 구조임을 확인.
+- [x] `Navigation` 오브젝트의 `NavMeshSurface`가 `collectObjects=MarkedWithModifier` 방식이라 Ground/Fence의 NavMeshModifier만 있으면 재굽기(Bake) 시 자동으로 새 크기를 반영함을 확인.
+- [x] `ItemSpawner`는 플레이어 위치 기준 상대 반경(maxDistance)으로 스폰 — 맵 크기와 무관, 수정 불필요.
+- [x] `ZombieSpawner`는 `Spawn Points` 하위 4개 Transform 사용 — 기존 경계(22x22)에 맞춰 배치되어 있어 재배치 필요.
+- [x] `Full Map Camera`(orthoSize=16, 1024x1024 텍스처)는 시작 시 1회 촬영이라 지도 크기를 바꾸면 orthoSize 재조정 필요. `Minimap Camera`는 플레이어 추종형이라 맵 크기와 무관, 수정 불필요.
 
-## CP2. 피벗 재배치
-- [x] `Melee Weapon.prefab`: 회전 피벗을 두 손잡이의 중간 지점(z=0.625)으로 이동.
-      - Melee Weapon 루트 localPosition.z: 0.17 → 0.795
-      - Shovel Model localPosition.z: 0 → -0.625
-      - Left Handle localPosition.z: 0.90 → 0.275
-      - Right Handle localPosition.z: 0.35 → -0.275
-      (뒤틀림 없이 대기 자세 기준 시각적으로 동일한 위치를 유지하면서 회전 피벗만 손잡이 쪽으로 이동)
-      Verify: 컴파일 에러 0건.
+## CP2. 지형/충돌 비례 확대 (배율 k = 50/22 ≈ 2.27, 목표 50x50)
+- [x] `Ground` localScale (2.2,1,2.2) → (5.0,1,5.0) — 순수 스케일만 변경(피벗이 이미 중심과 일치).
+- [x] `Fence`, `Fence Collider`: 각각의 월드 바운즈 중심을 구해 Ground와 동일한 중심(-1.5,*,2)을 유지하도록 스케일(X/Z만 k배, Y 높이는 그대로)과 포지션을 함께 재계산해 적용(코드로 계산 후 적용 — 손 계산 대신 `Renderer.bounds`/`BoxCollider.bounds`로 직접 측정).
+      Verify: 적용 후 세 오브젝트의 바운즈 중심이 모두 (-1.5, *, 2)로 정확히 일치함을 코드로 재확인. 정상 위 스크린샷(45도 위)으로 울타리가 새 Ground 전체를 대칭으로 둘러싸는 것을 육안 확인.
 
-## CP3. 대기/스윙 각도 재조정 (1차: 40°→-50°)
-- [x] `MeleeWeapon.cs`: ReadyRotation -50°→40°, SwingRotation 80°→-50°로 변경(블레이드가 대기 시 어깨 위로, 스윙 시 앞-아래로 향하도록 부호 반전 + 각도 재계산).
-      Verify: 후보 각도(60°~170°, -60°~50°)별 블레이드/손잡이의 월드 높이·전방 내적을 계산해 손이 자연스러운 높이(약 1.0~1.5m)에 머물고 블레이드가 크게 호를 그리는 조합을 확인한 뒤 선택.
+## CP3. 스폰/카메라 갱신
+- [x] `Spawn Points`(4개)를 동일한 중심 기준 배율 k로 재배치(기존 경계 근처였던 위치가 새 경계 근처로 이동).
+- [x] `Full Map Camera.orthographicSize` 16 → 30(새 울타리 바운즈(~28.4) + 여유 마진을 포함하도록).
+      Verify: Play Mode에서 지도 창(M)을 열어 새로 확장된 전체 구역이 잘리지 않고 여유 있게 프레임 안에 들어오는 것을 스크린샷으로 확인.
 
-## CP3-2. 사용자 재지적: "휘두르는게 내려찍는게 아니라 올리는 것처럼 보인다" → 0°→-90°로 재조정
-- [x] 원인: 40°(대기)→-50°(스윙)에서도 실제로는 블레이드가 내려가는 게 맞았지만(수치상 확인됨), 반대쪽 D자 손잡이 끝이 동시에 위로 올라가면서(1.00m→1.61m) 더 눈에 띄는 실루엣이라 시각적으로는 "올라가는 동작"으로 읽혔음. 대기 자세 자체가 이미 어깨 위로 심하게 들려 있어서 변화의 방향을 판단하기 어려운 것도 원인.
-- [x] 재조정: ReadyRotation 40°→0°(수평으로 앞에 들고 있는 중립 자세), SwingRotation -50°→-90°(블레이드가 수직으로 발밑까지 내려꽂히는 자세)로 변경 — 대기(수평)와 타격(수직, 블레이드 아래) 차이가 명확해 방향 오인 소지 제거.
-      Verify: 스크린샷으로 대기(수평 자세)/타격(블레이드가 발밑까지 수직으로 내려감, D손잡이만 머리 위) 자세를 직접 비교 확인. 좀비 데미지(hp 50→-30, 콜라이더 2개×40 기존 동작과 동일) 및 총 회귀(magAmmo 25→24) 재확인 완료.
+## CP4. NavMesh 재굽기 + 에셋 저장
+- [x] `NavMeshSurface.BuildNavMesh()` 재실행.
+- [x] **[함정]** 스크립트로 `BuildNavMesh()`만 호출하면 새로 만들어진 `NavMeshData`가 기존 `Assets/Scenes/Main/NavMesh-Navigation.asset`에 저장되지 않고 메모리상의 임시 오브젝트로만 남음(`AssetDatabase.GetAssetPath`가 빈 문자열) — 다음 세션에서 씬을 다시 열면 옛날(22x22) NavMesh로 되돌아가는 문제. 기존 에셋을 지우고 새 데이터로 `AssetDatabase.CreateAsset`+`SaveAssets`로 같은 경로에 다시 저장한 뒤 `NavMeshSurface.navMeshData`를 재연결해서 해결.
+      Verify: `git status`에 `NavMesh-Navigation.asset`이 실제로 modified로 표시됨을 확인(수정 전에는 반영 안 됨을 먼저 확인한 뒤 대조).
+- [x] Play Mode 재검증: 좀비 2마리가 새 스폰 포인트 위치(24.64,0.5,2 / -1.5,0.5,-25.27)에서 정상 스폰되고 `NavMeshAgent.isOnNavMesh=true`. 플레이어를 옛 경계 밖(x=20)로 텔레포트해도 바닥이 꺼지지 않고 정상 서 있음. 컴파일 에러 0건, 콘솔 에러 0건.
 
-## CP3-3. 사용자 재지적 (실제 플레이): "블레이드가 몸을 관통하고, 공격하면 플레이어 쪽으로 내려찍는다" → 메쉬 앞뒤 방향 자체를 수정
-- [x] 원인: CP3-2 수정 시 피벗 위치는 옮겼지만, 블레이드가 메쉬 로컬 -Z쪽에 있다는 걸 반영 안 하고 root를 +Z로 옮겨서 블레이드가 몸 안쪽(-Z)에 위치 — 대기 자세부터 몸 관통.
-- [x] `Shovel Model`을 Y축 180° 회전(메쉬를 앞뒤로 뒤집어 블레이드가 로컬 +Z, 총의 "정면" 관례와 일치하도록)하고, 피벗-재중심 좌표를 뒤집힌 계로 재계산(Melee Weapon root z: 0.795→-0.455, Shovel Model z: 0→0.625/rotY 180, Left Handle z: 0.275→-0.275, Right Handle z: -0.275→0.275).
-- [x] `MeleeWeapon.cs`: SwingRotation -90°→70°(뒤집힌 좌표계에서 양의 X 회전이 블레이드를 앞-아래로 내림).
-      Verify: 이번엔 스크린샷 대신 `melee.TransformPoint`로 블레이드 월드좌표를 구해 플레이어 루트 기준 거리·전방 내적을 수치로 우선 확인(대기: 1.97m/fwdDot 0.76, 타격: 0.80m/fwdDot 0.96/높이 0.22m — 몸 관통 없이 항상 앞쪽에 위치) → 정면 45도 각도 스크린샷으로 육안 재확인 → 좀비 데미지/총 회귀/컴파일 에러 재확인.
-
-## CP4. 시각/기능 검증 (Play Mode, 안전한 위치에서 진행)
-- [x] Play Mode에서 플레이어를 좀비/화재 위험이 없는 지점으로 옮긴 뒤 삽 장착 → 스크린샷으로 대기 자세 확인: 블레이드가 어깨 위로 자연스럽게 들려 있고 손이 몸 가까이에서 자연스럽게 파지함(이전의 "거꾸로 든" 모양 해소).
-- [x] `isPaused`+`Step()`으로 스윙 프레임별 회전 진행 확인: 40°→...→-50°(struck)→(0.1s 유지)→40°(복귀), 스윙 지속시간(0.3s)과 일치.
-- [x] 스윙 중 struck 자세 스크린샷 확인: 무기가 몸 가까이, 어깨~가슴 높이에서 앞을 향해 내려찍는 모양으로 보임.
-- [x] 좀비를 사거리 내에 배치(NavMeshAgent/Zombie 스크립트 임시 비활성화로 AI 이동 방지) 후 Attack() 호출 → 체력 20→-60 (데미지 40 정확히 1회 적용) 확인 — 판정 로직 회귀 없음.
-- [x] Gun으로 재전환 후 Fire() 호출 → magAmmo 25→24 정상 감소 확인 — 총 회귀 없음.
-- [x] Unity 컴파일 에러 0건 (read_console 확인).
+## CP5. 씬 저장 및 회귀 확인
+- [x] `manage_scene save`로 `Main.unity` 저장(2회 — NavMesh 에셋 재연결 전/후).
+- [x] `git status`로 변경 파일이 `Main.unity`, `Main/NavMesh-Navigation.asset`으로만 국한됨을 확인(Packages/ProjectSettings는 기존부터 있던 무관한 변경).
