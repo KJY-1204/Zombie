@@ -213,6 +213,9 @@ MonoBehaviour:
   statusWindow: {fileID: 4650161477653628010}
   statusHealthText: {fileID: 8545184408902554601}
   statusHealthBarFill: {fileID: 8104623183136032262}
+  statusSilhouette: {fileID: 8690014792106330864}
+  healthyColor: {r: 0.85, g: 0.85, b: 0.9, a: 1}
+  criticalColor: {r: 0.9, g: 0.15, b: 0.15, a: 1}
 --- !u!1 &1092682336142274
 GameObject:
   m_ObjectHideFlags: 0
@@ -2279,7 +2282,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0}
   m_AnchorMax: {x: 1, y: 0}
-  m_AnchoredPosition: {x: -57, y: 54}
+  m_AnchoredPosition: {x: -83, y: 56}
   m_SizeDelta: {x: 28, y: 28}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!222 &5982842190209456080

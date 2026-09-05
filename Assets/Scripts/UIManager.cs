@@ -30,6 +30,10 @@ public class UIManager : MonoBehaviour {
     public GameObject statusWindow; // I 키로 여닫는 상태 창
     public Text statusHealthText; // 상태 창의 체력 퍼센트 텍스트
     public Image statusHealthBarFill; // 상태 창의 세로 체력바 채움 이미지
+    public Image statusSilhouette; // 상태 창의 신체 실루엣 이미지
+
+    public Color healthyColor = new Color(0.85f, 0.85f, 0.9f, 1f); // 체력 100%일 때 색
+    public Color criticalColor = new Color(0.9f, 0.15f, 0.15f, 1f); // 체력 0%일 때 색
 
     private PlayerInput playerInput; // 상태 창 토글 입력을 읽어올 컴포넌트
     private LivingEntity playerLivingEntity; // 체력을 조회할 대상
@@ -63,6 +67,11 @@ public class UIManager : MonoBehaviour {
 
             statusHealthText.text = "체력 " + Mathf.RoundToInt(ratio * 100f) + "%";
             statusHealthBarFill.fillAmount = ratio;
+
+            // 체력이 낮을수록 체력바와 실루엣을 붉게 물들임
+            Color tint = Color.Lerp(criticalColor, healthyColor, ratio);
+            statusHealthBarFill.color = tint;
+            statusSilhouette.color = tint;
         }
     }
 

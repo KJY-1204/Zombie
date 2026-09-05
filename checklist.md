@@ -27,4 +27,9 @@
 - [x] `UIManager.cs`에 `statusHealthBarFill`(Image) 필드 추가, `Update()`에서 `fillAmount = health/startingHealth`로 갱신(텍스트도 "체력 70%" 형식으로 변경).
       Verify: 코드로 데미지 30 적용 후 상태창 열어 `healthText="체력 70%"`, `fillAmount=0.7` 정확히 일치 확인. `RectTransform.GetWorldCorners()`로 패널이 화면(1515x862) 안쪽 중앙(553~960, 227~634)에 정확히 위치함을 좌표로 확인(스크린샷이 반복적으로 안 보였는데, 좌표 직접 검증으로 레이아웃 자체는 문제없음을 확정 — 헤드리스 캡처 렌더링 지연 문제로 결론).
 
+## CP5. 사용자 재검수 피드백 3건
+- [x] **[버그] 체력바 아이콘이 바 중심이 아니라 오른쪽 아래에 치우쳐 있었음**: `Health Bar Icon`의 `anchoredPosition.x`가 `Health Bar Background`의 실제 중심 x좌표와 다른 값으로 잘못 계산돼 있었음. 두 오브젝트의 anchor/pivot 기준으로 중심 x를 다시 계산해 정확히 일치시킴. `GetWorldCorners()`로 두 중심 좌표가 완전히 동일함(diff=0)을 확인.
+- [x] **체력바/실루엣 색상**: 체력 비율에 따라 `healthyColor`(밝은 회백색) ↔ `criticalColor`(빨강) 사이를 `Color.Lerp`로 보간해 체력바 채움과 실루엣 양쪽에 동일하게 적용. 100%=원래색, 20%=붉게 물듦을 코드로 확인.
+      Verify: 안전지대로 플레이어를 옮겨 좀비 공격 없이 깨끗한 상태에서 체력 100%→20% 변화 시 텍스트/fillAmount/두 이미지 색상이 전부 기대값과 정확히 일치함을 확인.
+
 ## Slice 4 완료 (핵심 상태 = 체력만, Hunger/Stamina 등은 요청 없어 추가 안 함)
