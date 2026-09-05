@@ -13782,12 +13782,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DayNightCycle
   cycleDuration: 240
   sun: {fileID: 993704130}
-  dayLightColor: {r: 1, g: 0.95, b: 0.85, a: 1}
-  dayLightIntensity: 1.1
+  dayLightColor: {r: 1, g: 0.97, b: 0.9, a: 1}
+  dayLightIntensity: 1.5
   nightLightColor: {r: 0.23, g: 0.277, b: 0.774, a: 1}
   nightLightIntensity: 0.25
-  dayAmbient: {r: 0.4, g: 0.4, b: 0.42, a: 1}
+  dayAmbient: {r: 0.58, g: 0.58, b: 0.6, a: 1}
   nightAmbient: {r: 0.255, g: 0.09, b: 0.047, a: 1}
+  daySkyExposure: 1.6
+  nightSkyExposure: 0.15
+  daySkyTint: {r: 0.55, g: 0.62, b: 0.72, a: 1}
+  nightSkyTint: {r: 0.12, g: 0.1, b: 0.22, a: 1}
+  dayGroundColor: {r: 0.45, g: 0.43, b: 0.4, a: 1}
+  nightGroundColor: {r: 0.05, g: 0.04, b: 0.05, a: 1}
 --- !u!4 &1001389183 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 5dabbfb843e750247920654d2a658afb,
