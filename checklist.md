@@ -1,28 +1,26 @@
-# Checklist — 근접무기(삽) + 무기 전환 시스템
+# Checklist — 근접무기(삽) 파지 자세 수정 (사용자 버그 리포트: "삽을 반대로 들고있다")
 
-## CP1. 데이터/스크립트 기반
-- [x] `Assets/Scripts/MeleeWeaponData.cs` 신규 (ScriptableObject, damage/attackRange/attackRadius/swingDuration/timeBetAttack).
-- [x] `Assets/ScriptableData/Shovel Data.asset` 생성.
-- [x] `Assets/Scripts/MeleeWeapon.cs` 신규 (leftHandMount/rightHandMount/meleeData, Attack()→SwingRoutine() 코루틴, OverlapSphere 판정).
-- [x] `Assets/Scripts/Gun.cs`에 `leftHandMount`/`rightHandMount` 필드 추가(로직 변경 없음, PlayerShooter가 참조할 수 있게).
-      Verify: 컴파일 에러 0건 (read_console 확인 완료).
+## CP1. 원인 조사
+- [x] 스크린샷으로 실제 문제 재현: 삽의 D자 손잡이 끝(z=1.06)이 머리 위로 솟아오르고, 블레이드(z=-0.5, 넓은 부분)는 허리 옆에 축 처져 있음 — 완전히 거꾸로 든 모양.
+- [x] 원인 특정: 회전 피벗(Melee Weapon 오브젝트 원점)이 Left/Right Handle(z=0.35~0.90) 손잡이 위치에서 멀리 떨어져 있어, 회전 시 블레이드와 손잡이가 원점 기준 반대편에서 서로 어긋나게 움직임.
 
-## CP2. Melee Weapon 프리팹
-- [x] `Assets/Prefabs/Melee Weapon.prefab` 생성: shovel.fbx 모델 + Left Handle/Right Handle 트랜스폼 + AudioSource + MeleeWeapon 컴포넌트.
-- [x] `Player Character.prefab`의 `Gun Pivot` 아래 `Gun`의 형제로 배치, 기본 비활성.
-      Verify: Main Camera 게임 뷰 스크린샷으로 확인 — 삽을 어깨 위로 비스듬히 들어올린 자연스러운 대기 자세, 총과 동일한 IK 손 마운트 컨벤션으로 부착됨을 눈으로 확인. 완벽한 손맛은 헤드리스 한계로 사용자 직접 플레이 권장.
+## CP2. 피벗 재배치
+- [x] `Melee Weapon.prefab`: 회전 피벗을 두 손잡이의 중간 지점(z=0.625)으로 이동.
+      - Melee Weapon 루트 localPosition.z: 0.17 → 0.795
+      - Shovel Model localPosition.z: 0 → -0.625
+      - Left Handle localPosition.z: 0.90 → 0.275
+      - Right Handle localPosition.z: 0.35 → -0.275
+      (뒤틀림 없이 대기 자세 기준 시각적으로 동일한 위치를 유지하면서 회전 피벗만 손잡이 쪽으로 이동)
+      Verify: 컴파일 에러 0건.
 
-## CP3. 무기 전환 로직
-- [x] `PlayerInput.cs`에 `switchWeapon`(Q키) 추가.
-- [x] `PlayerShooter.cs` 리팩터링: currentWeapon(Gun/Melee) 상태, Q 입력 시 두 무기 GameObject SetActive 반전 + IK 마운트 참조 교체, fire 입력을 현재 무기에 라우팅, reload는 Gun일 때만.
-      Verify: 리플렉션으로 `EquipWeapon(Melee)` 직접 호출 → gunActive=False/meleeActive=True로 정확히 반전 확인. `OnAnimatorIK`가 실제로 갱신하는 애니메이터 IK 위치가 현재 무기(Melee)의 leftHandMount/rightHandMount 월드 좌표와 정확히 일치함을 확인(Gun으로 되돌린 뒤에도 동일하게 일치 재확인).
+## CP3. 대기/스윙 각도 재조정
+- [x] `MeleeWeapon.cs`: ReadyRotation -50°→40°, SwingRotation 80°→-50°로 변경(블레이드가 대기 시 어깨 위로, 스윙 시 앞-아래로 향하도록 부호 반전 + 각도 재계산).
+      Verify: 후보 각도(60°~170°, -60°~50°)별 블레이드/손잡이의 월드 높이·전방 내적을 계산해 손이 자연스러운 높이(약 1.0~1.5m)에 머물고 블레이드가 크게 호를 그리는 조합을 확인한 뒤 선택.
 
-## CP4. 판정 검증
-- [x] 좀비 근처에서 `meleeWeapon.Attack()` 직접 호출 → 스윙 진행 중 판정 시점에 좀비 체력이 실제로 감소하는지 확인.
-- [x] 스윙 중 무기 로컬 회전이 프레임별로 변하는지 확인.
-- [x] Gun 회귀: 다시 총으로 전환 후 발사/재장전 정상 동작 확인.
-      Verify: 에디터를 일시정지(`isPaused=true`)한 뒤 `EditorApplication.Step()`으로 프레임을 한 장씩 진행하며 확인 — 무기 로컬 회전이 310°(대기)→318.7°→...→80°(스윙 정점)까지 프레임마다 매끄럽게 변하고, t≈0.4 지점(step 6)에서 좀비 체력이 20→-60으로 정확히 1회 감소(중복 판정 없음, hitApplied 플래그 정상 동작), 스윙 종료 후 대기 자세(310°)로 복귀함을 확인. Gun으로 전환 후 `Fire()` 호출 시 magAmmo 25→24 정상 감소, `Reload()` 호출 시 state가 Reloading으로 정상 전환됨을 확인.
-
-## CP5. 통합 검증
-- [x] Unity 컴파일 에러 0건.
-- [x] 좀비 관련 기존 스크립트(Zombie.cs, LivingEntity.cs) 회귀 없음 — 기존 `IDamageable.OnDamage()` 인터페이스를 그대로 재사용했으며 수정하지 않음. 좀비 AI/콜라이더/레이어는 변경 없이 정상 동작(테스트 중 좀비가 실제로 플레이어를 인식하고 공격하는 것도 확인됨).
+## CP4. 시각/기능 검증 (Play Mode, 안전한 위치에서 진행)
+- [x] Play Mode에서 플레이어를 좀비/화재 위험이 없는 지점으로 옮긴 뒤 삽 장착 → 스크린샷으로 대기 자세 확인: 블레이드가 어깨 위로 자연스럽게 들려 있고 손이 몸 가까이에서 자연스럽게 파지함(이전의 "거꾸로 든" 모양 해소).
+- [x] `isPaused`+`Step()`으로 스윙 프레임별 회전 진행 확인: 40°→...→-50°(struck)→(0.1s 유지)→40°(복귀), 스윙 지속시간(0.3s)과 일치.
+- [x] 스윙 중 struck 자세 스크린샷 확인: 무기가 몸 가까이, 어깨~가슴 높이에서 앞을 향해 내려찍는 모양으로 보임.
+- [x] 좀비를 사거리 내에 배치(NavMeshAgent/Zombie 스크립트 임시 비활성화로 AI 이동 방지) 후 Attack() 호출 → 체력 20→-60 (데미지 40 정확히 1회 적용) 확인 — 판정 로직 회귀 없음.
+- [x] Gun으로 재전환 후 Fire() 호출 → magAmmo 25→24 정상 감소 확인 — 총 회귀 없음.
+- [x] Unity 컴파일 에러 0건 (read_console 확인).

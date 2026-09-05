@@ -13,9 +13,9 @@ public class MeleeWeapon : MonoBehaviour {
     private Coroutine swingRoutine; // 진행 중인 스윙 코루틴
     private float lastAttackTime; // 마지막으로 공격한 시점
 
-    // 뒤로 젖힌 대기 자세와 내려찍는 자세 (로컬 회전)
-    private static readonly Quaternion ReadyRotation = Quaternion.Euler(-50f, 0f, 0f);
-    private static readonly Quaternion SwingRotation = Quaternion.Euler(80f, 0f, 0f);
+    // 어깨 위로 들어올린 대기 자세와 내려찍는 자세 (로컬 회전)
+    private static readonly Quaternion ReadyRotation = Quaternion.Euler(40f, 0f, 0f);
+    private static readonly Quaternion SwingRotation = Quaternion.Euler(-50f, 0f, 0f);
 
     private void Awake() {
         weaponAudioPlayer = GetComponent<AudioSource>();
