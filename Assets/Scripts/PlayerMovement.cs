@@ -18,19 +18,23 @@ public class PlayerMovement : MonoBehaviour {
 
     // FixedUpdate는 물리 갱신 주기에 맞춰 실행됨
     private void FixedUpdate() {
-        // 마우스 조준 방향으로 회전
-        RotateTowardsMouse();
+        // 마우스 조준 방향으로 회전 (이동 방향 계산보다 먼저 실행되어야 함)
+        // 방금 계산한 정면 방향을 반환값으로 바로 재사용 — Rigidbody 회전 직후
+        // Transform과의 동기화 시점에 의존하지 않기 위함
+        Vector3 facingDirection = RotateTowardsMouse();
         // WASD 입력에 따른 이동 실행
-        Move();
+        Vector3 moveDirection = CalculateMoveDirection();
+        Move(moveDirection);
 
-        // 입력값(전후+좌우 합) 크기에 따라 애니메이터의 Move 파라미터 값을 변경
-        Vector2 moveInput = new Vector2(playerInput.strafe, playerInput.move);
-        playerAnimator.SetFloat("Move", Mathf.Clamp01(moveInput.magnitude));
+        // 이동 방향이 캐릭터가 바라보는 방향과 얼마나 일치하는지(전진 +, 후진 -)를
+        // 애니메이터의 Move 파라미터에 반영. 순수 좌우 이동(스트레이프)일 때는
+        // 내적이 0에 가까워져 제자리 걸음처럼 보이는 어색함을 줄여준다.
+        float facingRelativeSpeed = Vector3.Dot(moveDirection, facingDirection);
+        playerAnimator.SetFloat("Move", facingRelativeSpeed);
     }
 
-    // WASD 입력값에 따라 카메라 기준 앞/뒤/좌/우로 캐릭터를 움직임
-    private void Move() {
-        // 카메라의 수평 방향(높이 성분 제거) 기준으로 이동 축을 계산
+    // 카메라의 수평 방향(높이 성분 제거) 기준으로 WASD 입력의 이동 방향을 계산
+    private Vector3 CalculateMoveDirection() {
         Vector3 camForward = Camera.main.transform.forward;
         camForward.y = 0f;
         camForward.Normalize();
@@ -46,25 +50,30 @@ public class PlayerMovement : MonoBehaviour {
         {
             moveDirection.Normalize();
         }
+        return moveDirection;
+    }
 
+    // 계산된 방향으로 캐릭터를 이동
+    private void Move(Vector3 moveDirection) {
         // 상대적으로 이동할 거리 계산
         Vector3 moveDistance = moveDirection * moveSpeed * Time.deltaTime;
         // 리지드바디를 통해 게임 오브젝트 위치 변경
         playerRigidbody.MovePosition(playerRigidbody.position + moveDistance);
     }
 
-    // 마우스가 가리키는 지점을 바라보도록 캐릭터를 회전
-    private void RotateTowardsMouse() {
+    // 마우스가 가리키는 지점을 바라보도록 캐릭터를 회전하고, 갱신된 정면 방향을 반환
+    private Vector3 RotateTowardsMouse() {
         Vector3 lookDirection = playerInput.mouseWorldPosition - playerRigidbody.position;
         lookDirection.y = 0f;
 
-        // 마우스가 캐릭터 위치와 거의 겹치면 회전하지 않음
-        if (lookDirection.sqrMagnitude < 0.0001f) return;
+        // 마우스가 캐릭터 위치와 거의 겹치면 회전하지 않고 현재 정면 방향을 그대로 반환
+        if (lookDirection.sqrMagnitude < 0.0001f) return playerRigidbody.rotation * Vector3.forward;
 
         Quaternion targetRotation = Quaternion.LookRotation(lookDirection);
         Quaternion newRotation = Quaternion.RotateTowards(
             playerRigidbody.rotation, targetRotation, rotateSpeed * Time.deltaTime);
         // 리지드바디를 통해 게임 오브젝트 회전 변경
-        playerRigidbody.MoveRotation(newRotation);
+        playerRigidbody.rotation = newRotation;
+        return newRotation * Vector3.forward;
     }
 }
