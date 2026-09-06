@@ -29,7 +29,7 @@ public class DayNightCycle : MonoBehaviour {
     private float elapsed;
     private Material skyboxInstance;
 
-    private void Start() {
+    private void Awake() {
         // 낮(정오 부근)부터 시작
         elapsed = cycleDuration * 0.25f;
 
@@ -38,15 +38,30 @@ public class DayNightCycle : MonoBehaviour {
             skyboxInstance = new Material(RenderSettings.skybox);
             RenderSettings.skybox = skyboxInstance;
         }
+
+        // Awake에서 즉시 조명을 반영해야 함: Unity는 모든 오브젝트의 Awake()가 끝난
+        // 뒤에야 Start()를 호출하므로, 여기서 적용해두지 않으면 UIManager.Start()가
+        // 찍는 전체지도 스냅샷이 이 스크립트의 첫 Update()보다 먼저 실행되어
+        // 정오 조명이 반영되기 전(씬에 남아있던 기본/야간 값)으로 어둡게 찍힘.
+        ApplyLighting();
     }
 
     private void Update() {
         elapsed += Time.deltaTime;
+        ApplyLighting();
+    }
+
+    private void ApplyLighting() {
         float t = (elapsed % cycleDuration) / cycleDuration;
         float angle = t * 360f;
 
-        // 기존 조명의 방위각(Y=330)은 유지하고, 태양 고도(X)만 하루 주기로 순환
-        sun.transform.rotation = Quaternion.Euler(angle - 90f, 330f, 0f);
+        // 기존 조명의 방위각(Y=330)은 유지하고, 태양 고도(X)만 하루 주기로 순환.
+        // X=90에서 태양이 머리 위(정오), X=0/180에서 지평선(일출/일몰), X=270(-90)에서
+        // 반대편 지하(자정)를 가리키도록 해서 DayAmount(아래 sin(angle) 기반 밝기)와
+        // 실제 태양 고도가 같은 위상으로 맞물리게 함(기존 "angle - 90f"는 위상이 90도
+        // 어긋나 있어 DayAmount=1(대낮)일 때 태양이 지평선에 걸쳐 그림자가 극단적으로
+        // 길어지고 전체지도가 새까맣게 찍히는 원인이었음).
+        sun.transform.rotation = Quaternion.Euler(angle, 330f, 0f);
 
         // 태양이 지평선 위에 있는 절반 구간만 "낮"으로 취급, 부드럽게 보간
         float rawDay = Mathf.Clamp01(Mathf.Sin(angle * Mathf.Deg2Rad));

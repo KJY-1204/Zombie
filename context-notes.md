@@ -687,3 +687,24 @@ Append-only. Verified project facts and decisions only.
 2. `git log`/`git status`로 원격과 로컬 상태 일치 확인.
 3. Unity 에디터 컴파일 에러 확인 + Play Mode 베이스라인 재확인(위 회귀 항목들).
 4. 사용자에게 다음 방향 확인 — `checklist.md` 맨 아래 "다음 단계" 섹션에 후보들 정리되어 있음(도시 격자 추가 확장 vs 광산 구역 시작 vs 대량 좀비 스폰 성능 실측 등).
+
+## 2026-09-06 — 전체지도(M키) 어둡게 찍히는 버그 진단/수정
+
+### 증상과 최초 가설(기각됨)
+사용자 리포트: "전체지도가 너무 어둡게 보여". 처음엔 `UIManager.Start()`(지도 1회 촬영)와 `DayNightCycle.Update()`(조명 계산)의 스크립트 실행 순서 문제로 의심 — Unity는 모든 오브젝트의 `Awake()`가 끝난 뒤에야 `Start()`를 호출하지만, 서로 다른 스크립트의 `Start()`끼리는 순서가 보장되지 않으므로, `DayNightCycle`이 조명 계산을 `Update()`에서만 했다면 `UIManager.Start()`가 먼저 실행될 경우 씬에 저장된 임의 값으로 스냅샷이 찍힐 수 있음 — 이것도 실제로 존재하는 문제라 `ApplyLighting()`으로 분리해 `Awake()`에서 즉시 호출하도록 고침. **하지만 이것만으로는 문제가 해결되지 않았음**(수정 후에도 실측 밝기 동일).
+
+### 진짜 원인 (실측으로 확인)
+Play Mode 진입 후 `execute_code`로 `mapCamera.targetTexture`를 `ReadPixels`로 직접 읽어 중심부 평균 밝기를 측정 — 수정 전 0.0118(거의 순수 검정). 같은 순간 메인 카메라를 임시 RenderTexture로 렌더해 비교 측정하니 0.55(정상) — **전체지도 카메라만의 문제**임을 확인.
+`Physics.Raycast`로 지도 카메라 바로 아래 지점을 조회하니 `Ground`(레이어 Default, 머티리얼 `City Ground`, URP Simple Lit)가 나왔고, 그 지점 조명 상태를 조회한 결과 `sun.transform.eulerAngles.x`가 약 0°(거의 수평)임을 발견 — `DayAmount`(밝기 지표)가 1(대낮)로 찍히는 바로 그 순간, 실제 태양 고도는 지평선 수준이었음.
+
+원인은 `DayNightCycle.ApplyLighting()`의 `sun.transform.rotation = Quaternion.Euler(angle - 90f, 330f, 0f)` 공식. `DayAmount = smoothstep(clamp01(Mathf.Sin(angle)))`도 같은 `angle` 변수를 쓰는데, `sin(angle)`이 최대(1)가 되는 지점(`angle=90`)에서 회전 공식은 `angle-90=0`이 되어 태양이 수평(일출/일몰 각도)이 됨 — 즉 **"대낮 밝기"와 "태양이 머리 위에 있음"이 90도 위상차로 어긋나 있었음**. 대낮으로 판정되는 순간 태양이 실제로는 지평선에 걸려 있으니 건물들이 지면 전체에 극단적으로 긴 그림자를 드리우고, 그 순간 `UIManager.Start()`가 찍는 1회성 지도 스냅샷이 그 그림자로 뒤덮여 거의 새까맣게 나옴.
+메인 카메라(플레이어 3인칭 시점)에서는 하늘/건물 옆면 등 그림자 영향이 덜한 요소를 함께 보여줘서 사용자가 "전체 화면이 어둡다"고 체감하지 못했던 것으로 추정 — 실제로는 전역 조명 버그이지만, 최상단에서 지면 전체를 담는 지도만 증상이 극명하게 드러남.
+
+### 수정
+`angle - 90f`의 `-90f` 오프셋 제거 → `Quaternion.Euler(angle, 330f, 0f)`. 이제 `angle=90`(대낮, `DayAmount=1`)에서 태양 X 회전도 90°(머리 위, 진짜 정오)가 되어 두 지표가 같은 위상으로 맞물림. 전체 주기 검증: `angle=0/180`→수평(일출/일몰, `DayAmount=0`), `angle=270`→반대편 지하(자정, `DayAmount=0`) — 물리적으로 자연스러운 24시간 주기가 됨.
+
+### 디버깅 함정: 재컴파일 타이밍
+`Edit` 도구로 스크립트를 고친 직후 바로 Play Mode에 진입해 리플렉션으로 검증했으나, 옛 코드(`angle-90`) 그대로의 결과가 나와 처음엔 "수정이 안 먹혔다"고 오판할 뻔함 — MCP를 통한 파일 수정이 Unity의 자동 재컴파일 트리거보다 먼저 감지되지 않을 수 있음. `AssetDatabase.ImportAsset(path, ForceUpdate)` + `AssetDatabase.Refresh()`로 강제 재임포트한 뒤, Edit 모드에서 리플렉션으로 `private` 메서드(`ApplyLighting`)를 직접 호출해 결과를 확인하고 나서야 새 코드가 반영된 것을 확인함. **다음에 스크립트 수정 직후 바로 Play Mode로 검증할 때는, 먼저 `AssetDatabase.ImportAsset`으로 강제 재임포트하거나 Edit 모드 리플렉션으로 새 코드 반영 여부부터 확인할 것.**
+
+### 검증
+Play Mode에서 리플렉션으로 `mapCamera.targetTexture` 픽셀 실측 — 전체 이미지 평균 밝기 0.0818(최소 0/최대 1, 밝은 영역 다수 존재)로 개선(수정 전 중심부 표본 0.0118). `EncodeToPNG`로 저장해 시각 확인 — 도로/십자 교차로/건물(녹색 테두리)/나무가 명확히 구분되는 정상적인 주간 지도로 확인됨(테스트용 PNG 파일은 검증 후 삭제, 커밋 대상 아님). 컴파일 에러 0건, 메인 카메라 밝기(0.55)는 수정 전후 변화 없음(기존 정상 동작 회귀 없음 확인).
