@@ -210,6 +210,15 @@
       Verify: 재지정 후 전수 재검사 — `.fbx`로 끝나는 재질 참조 0건. Play Mode에서 오클루전을 강제 트리거해 건물의 모든 자식 렌더러(13개 전부)가 동일하게 `Universal Render Pipeline/Simple Lit` 셰이더 + 목표 알파(0.06)에 도달하는 것을 확인(수정 전에는 이 7개 파츠만 다른 셰이더로 나왔음). 콘솔 에러 0건.
       **[교훈]** 앞으로 Blender에서 프리뷰/미리보기용 재질을 만들 때, 프로젝트의 실제 공유 재질과 **절대 같은 이름을 쓰지 말 것**(예: "Trim Gray Preview"처럼 구분되는 접미사를 붙일 것) — 이름이 같으면 Unity가 FBX 임포트 시 이를 별도 서브에셋으로 만들면서도 이름이 똑같아 헷갈리기 쉽고, 이번처럼 C# 코드로 재질을 명시적으로 재지정해도 어느 시점엔가(정확한 재현 경로는 못 찾음) 임베디드 쪽으로 되돌아갈 여지가 생김.
 
+## CP35. 건물 루트 밖에 있는 장식 오브젝트들이 오클루전 페이드에서 빠짐
+사용자 리포트: "Floor Line이 보이는거 같아".
+
+- 원인: `Floor Line 1~4`(아파트 2개, 각 4개씩 총 8개) — 층 구분을 표시하려고 예전(CP32 이전, 아직 저층 2행 모델이었을 때) 세션에서 만든 것으로 보이는, 건물 루트가 아니라 `City`의 직계 자식으로 배치된 어두운 색(Roof Dark) 평판들. `PlayerOcclusionFader`는 `root.GetComponentsInChildren<Renderer>()`(건물 루트 하위)만 훑으므로 이 형제(sibling) 오브젝트들은 절대 페이드되지 않고, 건물이 투명해져도 이것들만 그대로 남아 "건물 안에 뭔가 그대로 있다"로 보였음. CP32에서 아파트를 5층 모델로 교체하면서 벨트코스가 이미 층 구분을 표시하므로 완전히 중복된 잔재였음 — 8개 전부 삭제.
+- 같은 구조적 문제(건물 루트 밖의 랜드마크 서명 요소)가 다른 랜드마크에도 있는지 전수 조사: `Police Station`(Accent Stripe, Light Bar), `Fire Station`(Garage Door), `Hospital`(Cross Horizontal/Vertical), `Pharmacy`(Cross Horizontal/Vertical) — 전부 `City`의 직계 자식으로 건물과 겹쳐 배치되어 있었고 전부 페이드 안 됨.
+      Verify: 각 건물 위치 반경(실제 BoxCollider 크기 기준)으로 겹치는 모든 City 자식 오브젝트를 전수 재검사해 더 이상 남은 게 없음을 확인.
+- [x] `Floor Line` 8개는 완전 삭제(중복 잔재). `Accent Stripe`/`Light Bar`/`Garage Door`/`Cross Horizontal`/`Cross Vertical`(총 7개)은 각각 해당 건물 루트의 자식으로 재부모화(`Transform.SetParent(root, worldPositionStays:true)`로 월드 위치는 그대로 유지) — 이제 `PlayerOcclusionFader`가 자동으로 이들을 건물의 일부로 인식해 함께 페이드됨.
+      Verify: 재부모화 후 월드 좌표 변화 없음 확인(before/after 완전 동일), 씬 저장 후 디스크 재로드로 영구 반영 확인. 건물 반경 기준 재검사로 더 이상 페이드 안 되는 형제 오브젝트가 없음을 확인. 콘솔 에러 0건.
+
 ## 다음 단계 (2026-09-05 세션 종료 시점 기준, 사용자에게 보고 후 순서대로 진행 예정)
 - [ ] 도시 구역: 교차로를 더 늘려 완전한 격자로 확장할지, 지금 규모(교차로 1개+건물 20동)로 충분하다고 보고 다음 구역으로 넘어갈지 사용자 확인.
 - [ ] Store Interior도 House Interior처럼 여러 방(예: 진열대 구역+창고+계산대 뒷방 등)으로 확장할지 검토.
