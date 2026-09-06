@@ -779,6 +779,24 @@ CP29에서 겪었던 "새 FBX 파츠의 localScale=100 때문에 콜라이더가
 ### 수정
 `fadedAlpha`를 0.06으로 재조정(`SerializedObject`로 씬 컴포넌트 값 직접 수정, 저장 확인). 알파 블렌딩 수식(`background*(1-a) + color*a`)상 값이 낮을수록 무조건 배경이 더 많이 비치므로, 이 방향의 조정 자체는 수학적으로 확실함 — 실제 "충분한지"는 사용자의 다음 플레이 테스트로 확인 필요.
 
+## 2026-09-06 — 건물 파츠 일부가 FBX 임베디드 재질을 참조하던 버그
+
+### 사용자 리포트와 진단
+"플레이 해보니깐 건물 겉만 반투명해지고 내부는 그대로인걸로 판단되" — Play Mode에서 각 자식 렌더러의 `renderer.material.shader.name`을 직접 찍어보니, `Building Body`/`Building Roof`/`Door Frame`/`Door Panel`/`Plinth`/`Stoop`(CP29 이전부터 있던 6개 파츠)는 전부 `Universal Render Pipeline/Simple Lit`로 정상인데, `Belt Course`/`Corner Pilasters`/`Door Awning`/`Roof Parapet`/`Roof Vent`/`Window Frames`/`Window Glass`(CP29에서 새로 추가된 7개 파츠)는 전부 `Universal Render Pipeline/Lit`로 다르게 나옴.
+`AssetDatabase.GetAssetPath(renderer.sharedMaterial)`로 실제 에셋 경로를 찍어보니, 문제의 7개 파츠는 `Assets/Models/Materials/Trim Gray.mat`(제가 의도한 진짜 공유 재질)가 아니라 **`Assets/Models/City/BuildingDetailed.fbx`** 자체를 가리키고 있었음 — 즉 FBX 파일 안에 임베디드된 서브에셋 재질을 쓰고 있었던 것. 원인은 CP29에서 Blender로 모델을 만들 때 프리뷰 렌더용으로 만든 Blender 재질에 실제 프로젝트 재질과 **똑같은 이름**("Trim Gray", "Roof Dark", "Window Glass")을 붙였던 것 — 이 재질들이 FBX 익스포트에 그대로 딸려 들어가 Unity가 임포트 시 동명의 서브에셋으로 자동 생성했고, 마이그레이션 스크립트에서 `sharedMaterial = trimGray`(진짜 에셋)로 명시적으로 재지정했음에도 불구하고 이 7개 파츠만 정확한 재현 경로는 못 찾았지만 결과적으로 임베디드 쪽 참조가 남아있었음(20개 건물 전체 126개 렌더러 영향, CP32의 아파트 전용 모델도 동일 문제).
+
+### 왜 이게 오클루전 페이드 버그처럼 보였나
+`PlayerOcclusionFader.BuildFadeState()`는 `renderer.material`을 호출해 인스턴스를 만들고 그 인스턴스에 `SetTransparent()`(`_Surface`/`_Blend`/`_SrcBlend`/`_DstBlend`/`_ZWrite` 설정)를 적용함 — 이 자체는 임베디드 재질에도 프로퍼티 이름이 같아서 값 설정은 "성공"하지만(에러 없음), 임베디드 재질이 실제로는 제가 전혀 손대지 않은 별개의 애셋이라 다른 기본 설정(예: 다른 렌더 큐 오프셋, 다른 셰이더 변형)을 갖고 있었을 가능성이 있고, 결과적으로 벽(`Building Body`, 정상 재질)은 시각적으로 확실히 페이드되는데 창틀/트림/지붕/캐노피(임베디드 재질) 부분은 눈에 띄게 덜 투명해 보여 사용자에게는 "건물 겉(벽)만 반투명해지고 내부(디테일 파츠)는 그대로"로 체감된 것.
+
+### 수정
+20개 건물(+2개 키 큰 아파트) 전체를 순회하며, 문제의 7개 파츠 이름에 대해 `sharedMaterial`의 에셋 경로가 `.fbx`로 끝나면(임베디드 재질을 물고 있다는 뜻) 올바른 `Assets/Models/Materials/*.mat`로 강제 재지정하는 일괄 스크립트 실행. 126개 렌더러 수정, 재검사 결과 `.fbx`로 끝나는 재질 참조 0건.
+
+### 교훈: Blender 프리뷰 재질 이름을 프로젝트 재질과 절대 겹치지 말 것
+Blender에서 뷰포트 렌더 확인용으로 임시 재질을 만들 때, 나중에 Unity에서 쓸 실제 공유 재질과 **절대 같은 이름을 쓰지 말 것**(예: "Trim Gray Preview" 처럼 구분되는 접미사를 붙일 것). 이름이 같으면 FBX 임포트 시 Unity가 구분 불가능한 동명 서브에셋을 만들어내고, C# 코드로 명시적으로 재질을 재지정해도 어떤 경로로든(정확히 재현은 못 했음) 임베디드 쪽으로 되돌아갈 여지가 생겨 이런 종류의 "일부만 반투명 안 됨" 버그가 재발할 수 있음.
+
+### 검증
+전 건물 재검사로 `.fbx`로 끝나는 재질 참조 0건 확인. Play Mode에서 오클루전 강제 트리거 후 건물의 13개 자식 렌더러 전부 동일하게 `Universal Render Pipeline/Simple Lit` + 목표 알파(0.06)에 도달하는 것 확인(수정 전엔 7개 파츠만 다른 셰이더로 나왔었음). 콘솔 에러 0건.
+
 ## 2026-09-06 — 건물 모델 Blender 재제작 ("초등학생 그림같다" 피드백)
 
 ### 문제 진단
